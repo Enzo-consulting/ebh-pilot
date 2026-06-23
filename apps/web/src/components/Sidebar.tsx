@@ -6,14 +6,18 @@ import {
   TrendingUp,
   Sparkles,
   X,
+  Wand2,
 } from 'lucide-react';
 import { cn } from '@ebh/ui';
 
+// Navigation principale — ajouter ici pour étendre la sidebar
 const nav = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/clients', label: 'Clients', icon: Users },
-  { to: '/products', label: 'Produits', icon: Package },
-  { to: '/profitability', label: 'Rentabilité', icon: TrendingUp },
+  { to: '/',             label: 'Dashboard',  icon: LayoutDashboard },
+  { to: '/clients',      label: 'Clients',    icon: Users },
+  { to: '/products',     label: 'Produits',   icon: Package },
+  { to: '/profitability',label: 'Rentabilité',icon: TrendingUp },
+  // ── Ticket 009.1 : Import IA ──────────────────────────────────────────
+  { to: '/ai-import',    label: 'AI Import',  icon: Wand2 },
 ];
 
 export function Sidebar({

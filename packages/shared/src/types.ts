@@ -15,6 +15,10 @@ import type {
   prospectStatusSchema,
   signInSchema,
   signUpSchema,
+  // Ticket #009.2 — AI Import
+  importJobStatusSchema,
+  importJobSchema,
+  createImportJobSchema,
 } from './schemas';
 
 export type ProspectStatus = z.infer<typeof prospectStatusSchema>;
@@ -32,3 +36,7 @@ export type DashboardMetrics = z.infer<typeof dashboardMetricsSchema>;
 export type ProfitabilityKpis = z.infer<typeof profitabilityKpisSchema>;
 export type SignInInput = z.infer<typeof signInSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
+// Ticket #009.2 — AI Import
+export type ImportJobStatus = z.infer<typeof importJobStatusSchema>;
+export type ImportJob = z.infer<typeof importJobSchema>;
+export type CreateImportJob = z.infer<typeof createImportJobSchema>;

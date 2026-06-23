@@ -3,74 +3,86 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String     @id @default(uuid())
+  email     String     @unique
   name      String?
   // Maps to Supabase auth.users id
-  authId    String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  authId    String?    @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   prospects Prospect[]
   products  Product[]
+  importJobs ImportJob[]
 }
 
 model Prospect {
-  id        String         @id @default(uuid())
+  id        String        @id @default(uuid())
   name      String
   company   String?
   email     String?
-  value     Decimal        @default(0) @db.Decimal(12, 2)
+  value     Decimal       @default(0) @db.Decimal(12, 2)
   status    ProspectStatus @default(NEW)
   // --- Client module fields (Ticket #005) ---
-  contactName    String?
-  phone          String?
-  mobile         String?
-  website        String?
-  address        String?
-  postalCode     String?
-  city           String?
-  country        String?
-  vatNumber      String?
-  clientStatus   ClientStatus @default(PROSPECT)
-  notes          String?
+  contactName String?
+  phone       String?
+  mobile      String?
+  website     String?
+  address     String?
+  postalCode  String?
+  city        String?
+  country     String?
+  vatNumber   String?
+  clientStatus ClientStatus @default(PROSPECT)
+  notes       String?
   userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
   @@index([userId])
 }
 
 model Product {
-  id                String   @id @default(uuid())
+  id                String  @id @default(uuid())
   name              String
   brand             String?
   supplier          String?
   supplierReference String?
-  purchasePrice     Decimal  @default(0) @db.Decimal(12, 2)
-  transportCost     Decimal  @default(0) @db.Decimal(12, 2)
-  preparationCost   Decimal  @default(0) @db.Decimal(12, 2)
-  accessoriesCost   Decimal  @default(0) @db.Decimal(12, 2)
-  otherCosts        Decimal  @default(0) @db.Decimal(12, 2)
+  purchasePrice     Decimal @default(0) @db.Decimal(12, 2)
+  transportCost     Decimal @default(0) @db.Decimal(12, 2)
+  preparationCost   Decimal @default(0) @db.Decimal(12, 2)
+  accessoriesCost   Decimal @default(0) @db.Decimal(12, 2)
+  otherCosts        Decimal @default(0) @db.Decimal(12, 2)
   // costPrice = purchasePrice + transportCost + preparationCost + accessoriesCost + otherCosts
-  costPrice         Decimal  @default(0) @db.Decimal(12, 2)
-  sellingPrice      Decimal  @default(0) @db.Decimal(12, 2)
+  costPrice         Decimal @default(0) @db.Decimal(12, 2)
+  sellingPrice      Decimal @default(0) @db.Decimal(12, 2)
   // marginAmount = sellingPrice - costPrice
-  marginAmount      Decimal  @default(0) @db.Decimal(12, 2)
+  marginAmount      Decimal @default(0) @db.Decimal(12, 2)
   // marginPercent = marginAmount / sellingPrice * 100
-  marginPercent     Decimal  @default(0) @db.Decimal(7, 2)
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  marginPercent     Decimal @default(0) @db.Decimal(7, 2)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+}
 
+// --- AI Import module (Ticket #009.2) ---
+// Tracks each supplier URL import attempt and its lifecycle status.
+model ImportJob {
+  id        String          @id @default(uuid())
+  url       String
+  status    ImportJobStatus @default(PENDING)
+  // userId is nullable to allow anonymous/demo imports
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
   @@index([userId])
 }
 
@@ -86,4 +98,11 @@ enum ClientStatus {
   PROSPECT
   ACTIVE
   INACTIVE
+}
+
+enum ImportJobStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
 }

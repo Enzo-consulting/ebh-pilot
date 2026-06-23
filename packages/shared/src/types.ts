@@ -1,25 +1,25 @@
 import type { z } from 'zod';
 import type {
-  prospectSchema,
-  createProspectSchema,
-  updateProspectSchema,
-  clientSchema,
-  createClientSchema,
-  updateClientSchema,
-  clientStatusSchema,
-  productSchema,
-  createProductSchema,
-  updateProductSchema,
-  dashboardMetricsSchema,
-  profitabilityKpisSchema,
-  prospectStatusSchema,
-  signInSchema,
-  signUpSchema,
-  // Ticket #009.2 — AI Import
-  importJobStatusSchema,
-  importJobSchema,
-  createImportJobSchema,
-} from './schemas';
+    prospectSchema,
+    createProspectSchema,
+    updateProspectSchema,
+    clientSchema,
+    createClientSchema,
+    updateClientSchema,
+    clientStatusSchema,
+    productSchema,
+    createProductSchema,
+    updateProductSchema,
+    dashboardMetricsSchema,
+    profitabilityKpisSchema,
+    prospectStatusSchema,
+    signInSchema,
+    signUpSchema,
+    // Ticket #009.2 — AI Import
+    importJobStatusSchema,
+    importJobSchema,
+    createImportJobSchema,
+} from './schemas.js';
 
 export type ProspectStatus = z.infer<typeof prospectStatusSchema>;
 export type Prospect = z.infer<typeof prospectSchema>;

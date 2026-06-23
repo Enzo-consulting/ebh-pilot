@@ -3,7 +3,42 @@
 Toutes les modifications notables du projet sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.6.0] — Ticket #009.1 (AI Import — Interface MVP) — 2026-06-23
+## [0.7.0] — Ticket #009.3 (API Production-Ready) — 2026-06-23
+
+Finalisation de l'API pour la rendre proprement consommable par le frontend. Aucun module métier modifié.
+
+### Ajouté
+
+- **GET /** — Route racine publique retournant `{service, status, version}` (HTTP 200).
+- - **GET /api/health** — Healthcheck avec test de connexion Prisma (`SELECT 1`). Retourne `{status, database: "connected"|"disconnected", timestamp}`. Ne fait jamais planter le serveur si la base est injoignable.
+  - - **GET /health** — Alias redirigé (301) vers `/api/health` pour compatibilité ascendante.
+    - - **CORS étendu** — `allowedOrigins` basé sur des expressions régulières pour autoriser `localhost` et `127.0.0.1` (tous ports) en développement, plus toute URL explicite définie dans `FRONTEND_URL` (ou l'alias `WEB_ORIGIN`) pour la production (ex. domaine Render).
+      - - **Variable `FRONTEND_URL`** — Nouvelle variable d'environnement documentée ; fusionnée avec `WEB_ORIGIN` existante pour la compatibilité.
+        - - **Middleware d'erreur global** — Intercepte toutes les erreurs non gérées et retourne `{success: false, message, code}` avec HTTP 403 (`CORS_BLOCKED`) ou 500 (`INTERNAL_ERROR`). N'expose pas les détails en production.
+          - - **Handler 404 global** — Toute route inconnue retourne `{success: false, message: "Route introuvable.", code: "NOT_FOUND"}`.
+            - - **Logs de démarrage structurés** — Bandeau au démarrage affichant l'environnement, le port et `API Ready`.
+              -
+              - ### Variables d'environnement gérées
+              -
+              - | Variable | Obligatoire | Description |
+              - |---|---|---|
+              - | `DATABASE_URL` | Oui (Prisma) | URL de connexion PostgreSQL |
+              - | `DIRECT_URL` | Non | URL directe pour Prisma Accelerate |
+              - | `PORT` | Non (défaut 4000) | Port d'écoute |
+              - | `NODE_ENV` | Non (défaut development) | Environnement |
+              - | `FRONTEND_URL` | Non | Origine frontend autorisée (Render, Vercel…) |
+              - | `WEB_ORIGIN` | Non | Alias legacy de FRONTEND_URL |
+              - | `SUPABASE_URL` | Oui (auth) | URL projet Supabase |
+              - | `SUPABASE_ANON_KEY` | Oui (auth) | Clé anonyme Supabase |
+              -
+              - ### Non modifié
+              -
+              - - Aucun module métier (Produits, Rentabilité, Prospects, Clients, Imports).
+                - - Aucun fichier frontend.
+                  - - Architecture du monorepo.
+                    - - Aucune nouvelle dépendance.
+                      -
+                      - ## [0.6.0] — Ticket #009.1 (AI Import — Interface MVP) — 2026-06-23
 
 Création de l'écran « AI Import » : interface uniquement, sans logique de scraping ni appel IA.
 Prête à être connectée aux tickets suivants.

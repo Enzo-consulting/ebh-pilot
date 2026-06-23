@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { requireAuth } from './auth';
-import { dashboardRouter } from './routes/dashboard';
-import { prospectsRouter } from './routes/prospects';
-import { clientsRouter } from './routes/clients';
-import { productsRouter } from './routes/products';
-import { profitabilityRouter } from './routes/profitability';
+import { requireAuth } from './auth.js';
+import { dashboardRouter } from './routes/dashboard.js';
+import { prospectsRouter } from './routes/prospects.js';
+import { clientsRouter } from './routes/clients.js';
+import { productsRouter } from './routes/products.js';
+import { profitabilityRouter } from './routes/profitability.js';
+import { importsRouter } from './routes/imports.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -24,8 +25,9 @@ app.use('/api/prospects', requireAuth, prospectsRouter);
 app.use('/api/clients', requireAuth, clientsRouter);
 app.use('/api/products', requireAuth, productsRouter);
 app.use('/api/profitability', requireAuth, profitabilityRouter);
+app.use('/api/imports', requireAuth, importsRouter);
 
 app.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`EBH Pilot API running on http://localhost:${port}`);
+    // eslint-disable-next-line no-console
+             console.log(`EBH Pilot API running on http://localhost:${port}`);
 });

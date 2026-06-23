@@ -6,6 +6,8 @@ import { Clients } from './pages/Clients';
 import { Products } from './pages/Products';
 import { Profitability } from './pages/Profitability';
 import { Login } from './pages/Login';
+// Ticket 009.1 — page AI Import
+import { AiImport } from './pages/AiImport';
 
 export function App() {
   return (
@@ -23,6 +25,8 @@ export function App() {
         <Route path="/prospects" element={<Navigate to="/clients" replace />} />
         <Route path="/products" element={<Products />} />
         <Route path="/profitability" element={<Profitability />} />
+        {/* Ticket 009.1 — route AI Import */}
+        <Route path="/ai-import" element={<AiImport />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

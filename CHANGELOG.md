@@ -3,6 +3,48 @@
 Toutes les modifications notables du projet sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0] — Ticket #009.1 (AI Import — Interface MVP) — 2026-06-23
+
+Création de l'écran « AI Import » : interface uniquement, sans logique de scraping ni appel IA.
+Prête à être connectée aux tickets suivants.
+
+### Ajouté
+
+- **Page `apps/web/src/pages/AiImport.tsx`** (nouveau fichier) :
+  - En-tête avec titre « AI Import » et sous-titre explicatif.
+  - Formulaire avec champ « URL fournisseur » (placeholder `https://...`) et icône décorative.
+  - Validation côté client : URL obligatoire, doit commencer par `http://` ou `https://`.
+  - Message d'erreur accessible (`role="alert"`, `aria-invalid`) affiché sous le champ.
+  - Bouton principal **Analyser** (variant `primary`) et bouton secondaire **Effacer** (variant `secondary`).
+  - Tableau « Historique des imports » avec colonnes : Date, URL, Statut, Utilisateur.
+  - Données entièrement mockées (aucun appel API).
+  - Badges de statut colorés : PENDING (neutral), PROCESSING (brand), SUCCESS (success), FAILED (danger).
+  - Icônes de statut animées (spinner sur PROCESSING via `animate-spin`).
+
+### Modifié
+
+- **`apps/web/src/components/Sidebar.tsx`** :
+  - Import de l'icône `Wand2` depuis `lucide-react`.
+  - Ajout de l'entrée `{ to: '/ai-import', label: 'AI Import', icon: Wand2 }` dans le tableau `nav`.
+
+- **`apps/web/src/App.tsx`** :
+  - Import de `AiImport` depuis `./pages/AiImport`.
+  - Ajout de la route `<Route path="/ai-import" element={<AiImport />} />` dans le layout protégé.
+
+### Non modifié
+
+- Thème et design system (réutilisation de Button, Card, CardBody, Badge, tokens CSS sémantiques).
+- Authentification, Dashboard, Clients, Produits, Rentabilité.
+- Architecture du monorepo.
+- Aucune nouvelle dépendance.
+
+### Vérifié
+
+- Compilation TypeScript sans erreur (types stricts respectés).
+- Validation URL : champ vide → erreur, `ftp://...` → erreur, `http://...` → valide, `https://...` → valide.
+- Badges de statut : 4 couleurs distinctes conformes au design system existant.
+- Layout cohérent avec les pages existantes (espacement, typographie, primitives UI).
+
 ## [0.5.0] — Ticket #005 (Module Clients) — 2026-06-22
 
 Transformation du module Prospects en un véritable module Clients (fiches

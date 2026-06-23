@@ -2,7 +2,29 @@
 
 Récapitulatif des fichiers créés ou modifiés par ticket.
 
----
+## Ticket #009.3 — API Production-Ready (2026-06-23)
+
+### Fichiers modifiés
+
+| Fichier | Modification |
+|---|---|
+| `apps/api/src/index.ts` | Route GET /, GET /api/health (Prisma check), CORS étendu avec FRONTEND_URL, middleware d'erreur global, handler 404, logs de démarrage structurés |
+| `CHANGELOG.md` | Entrée [0.7.0] ajoutée en tête |
+| `FILES_MODIFIED.md` | Ce fichier (section 009.3 ajoutée) |
+
+### Fichiers non modifiés
+
+Tous les modules métier sont intacts :
+
+- Produits, Rentabilité, Prospects, Clients, Imports (routes API)
+- - Frontend (apps/web)
+  - - Design system (packages/ui)
+    - - Schémas partagés (packages/shared)
+      - - Configuration Prisma
+        -
+        ---
+
+        ---
 
 ## Ticket #009.1 — AI Import — Interface MVP (2026-06-23)
 

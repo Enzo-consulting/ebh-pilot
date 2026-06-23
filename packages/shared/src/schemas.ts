@@ -179,3 +179,32 @@ export const signInSchema = z.object({
 export const signUpSchema = signInSchema.extend({
   name: z.string().min(1),
 });
+
+
+// --- AI Import module (Ticket #009.2) ---
+
+/** Valid lifecycle statuses for an import job. */
+export const importJobStatusSchema = z.enum([
+  'PENDING',
+  'PROCESSING',
+  'SUCCESS',
+  'FAILED',
+]);
+
+/** Full import job shape returned by the API. */
+export const importJobSchema = z.object({
+  id: z.string().uuid(),
+  url: z.string().url(),
+  status: importJobStatusSchema,
+  userId: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+/** Payload required to create a new import job (client → POST /api/imports). */
+export const createImportJobSchema = z.object({
+  url: z
+    .string()
+    .min(1, "L'URL est obligatoire.")
+    .regex(/^https?:\/\//, "L'URL doit commencer par http:// ou https://"),
+});

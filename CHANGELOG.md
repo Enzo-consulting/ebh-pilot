@@ -3,7 +3,52 @@
 Toutes les modifications notables du projet sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.7.0] — Ticket #009.3 (API Production-Ready) — 2026-06-23
+## [0.8.0] — Ticket #009.4 (Déploiement Frontend) — 2026-06-24
+
+Préparation du frontend pour un déploiement Render en production. Aucun module métier modifié.
+
+### Ajouté
+
+- **`apps/web/src/components/ApiStatus.tsx`** — Indicateur de santé API non-bloquant. Au démarrage, effectue un `GET /api/health` et affiche **API connectée** (vert) ou **API indisponible** (rouge). N’empêche jamais l’application de s’afficher.
+- - **`apps/web/src/components/LoadingScreen.tsx`** — Écran de chargement full-screen (logo Sparkles, points animés). Affiché via React Suspense pendant le chargement des chunks asynchrones.
+  - - **`apps/web/src/pages/NotFound.tsx`** — Page 404 avec Card, logo, boutons « Retour » et « Tableau de bord ». Design cohérent avec le reste de l’application (tokens de couleur, primitives UI).
+    - - **`apps/web/.env.example`** — Fichier d’exemple enrichi et documenté avec `VITE_API_URL`, `VITE_APP_NAME`, `VITE_ENVIRONMENT`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+      -
+      - ### Modifié
+      -
+      - - **`apps/web/vite.config.ts`** — Passage en forme fonction `defineConfig(({ mode }) => ...)` : chargement des variables d’env avec `loadEnv`, injection de constantes globales (`__APP_NAME__`, `__API_URL__`, `__ENVIRONMENT__`), proxy de développement sur `/api` si `VITE_API_URL` est absent, configuration `build.outDir` et `rollupOptions.manualChunks` pour Render.
+        - - **`apps/web/src/lib/api.ts`** — Export de la constante `BASE` (source unique de vérité pour l’URL de l’API). Ajout de `api.health()` : requête non-authentifiée `GET /api/health`, avec fallback silent en cas d’erreur réseau.
+          - - **`apps/web/src/components/Topbar.tsx`** — Intégration du composant `<ApiStatus />` dans la barre de navigation (visible sur ≥ sm).
+            - - **`apps/web/src/App.tsx`** — Remplacement de `<Navigate to="/" replace />` par `<NotFound />` sur la route `path="*"`, both inside and outside the authenticated layout.
+              - - **`apps/web/src/main.tsx`** — Ajout d’un `<Suspense fallback={<LoadingScreen />}>` autour de l’arbre applicatif.
+                -
+                - ### Variables d’environnement gérées
+                -
+                - | Variable | Obligatoire | Description |
+                - |---|---|---|
+                - | VITE_API_URL | Non (défaut localhost:4000) | URL de l’API backend |
+                - | VITE_APP_NAME | Non (défaut « EBH Pilot ») | Nom de l’application |
+                - | VITE_ENVIRONMENT | Non (défaut mode Vite) | Environnement (development/staging/production) |
+                - | VITE_SUPABASE_URL | Oui (auth) | URL projet Supabase |
+                - | VITE_SUPABASE_ANON_KEY | Oui (auth) | Clé anonyme Supabase |
+                -
+                - ### Non modifié
+                -
+                - - Aucun module métier (Produits, Rentabilité, Prospects, Clients, Imports).
+                  - - Architecture du monorepo.
+                    - - Design system (`packages/ui`).
+                      - - Schémas partagés (`packages/shared`).
+                        - - API backend (`apps/api`).
+                          -
+                          - ### Vérifié
+                          -
+                          - - Tous les imports relatifs utilisent les chemins corrects (pas de `.js` côté web, Vite gère la résolution).
+                            - - `ApiStatus` : non-bloquant — une erreur réseau ne fait jamais planter l’application.
+                              - - `NotFound` : accessible depuis toute route inconnue, à la fois dans et hors du layout authentifié.
+                                - - `LoadingScreen` : rendu pur CSS + tokens existants, pas de nouvelle dépendance.
+                                  - - Build `npm run build` compatible Render (outDir: dist, pas de sourcemap, chunks vendor/router/query).
+                                    -
+                                    - ## [0.7.0] — Ticket #009.3 (API Production-Ready) — 2026-06-23
 
 Finalisation de l'API pour la rendre proprement consommable par le frontend. Aucun module métier modifié.
 

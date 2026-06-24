@@ -2,6 +2,38 @@
 
 Récapitulatif des fichiers créés ou modifiés par ticket.
 
+## Ticket #009.4 — Déploiement Frontend (2026-06-24)
+
+### Fichiers créés
+
+| Fichier | Description |
+|---|---|
+| `apps/web/src/components/ApiStatus.tsx` | Indicateur santé API non-bloquant (GET /api/health, affiche connectée/indisponible) |
+| `apps/web/src/components/LoadingScreen.tsx` | Écran de chargement full-screen (logo + points animés) |
+| `apps/web/src/pages/NotFound.tsx` | Page 404 cohérente avec le design system |
+
+### Fichiers modifiés
+
+| Fichier | Modification |
+|---|---|
+| `apps/web/vite.config.ts` | Forme fonction, loadEnv, define, proxy dév, build.outDir, manualChunks |
+| `apps/web/.env.example` | Ajout VITE_APP_NAME, VITE_ENVIRONMENT, commentaires documentés |
+| `apps/web/src/lib/api.ts` | Export BASE, ajout api.health() non-authentifié avec fallback |
+| `apps/web/src/components/Topbar.tsx` | Intégration `<ApiStatus />` |
+| `apps/web/src/App.tsx` | Route `path="*"` pointe vers `<NotFound />` (au lieu de redirect) |
+| `apps/web/src/main.tsx` | `<Suspense fallback={<LoadingScreen />}>` autour de l’arbre |
+| `CHANGELOG.md` | Entrée [0.8.0] ajoutée en tête |
+| `FILES_MODIFIED.md` | Ce fichier (section 009.4 ajoutée) |
+
+### Fichiers non modifiés
+
+Tous les modules métier sont intacts :
+Produits, Rentabilité, Prospects, Clients, AI Import (routes API)
+API backend (`apps/api`)
+Design system (`packages/ui`)
+Schémas partagés (`packages/shared`)
+Configuration Prisma
+
 ## Ticket #009.3 — API Production-Ready (2026-06-23)
 
 ### Fichiers modifiés

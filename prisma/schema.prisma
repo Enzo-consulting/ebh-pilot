@@ -3,87 +3,25 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-model User {
-  id        String     @id @default(uuid())
-  email     String     @unique
-  name      String?
-  // Maps to Supabase auth.users id
-  authId    String?    @unique
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  prospects Prospect[]
-  products  Product[]
-  importJobs ImportJob[]
-}
+// ============================================================
+// ENUMS
+// ============================================================
 
-model Prospect {
-  id        String        @id @default(uuid())
-  name      String
-  company   String?
-  email     String?
-  value     Decimal       @default(0) @db.Decimal(12, 2)
-  status    ProspectStatus @default(NEW)
-  // --- Client module fields (Ticket #005) ---
-  contactName String?
-  phone       String?
-  mobile      String?
-  website     String?
-  address     String?
-  postalCode  String?
-  city        String?
-  country     String?
-  vatNumber   String?
-  clientStatus ClientStatus @default(PROSPECT)
-  notes       String?
-  userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  @@index([userId])
-}
-
-model Product {
-  id                String  @id @default(uuid())
-  name              String
-  brand             String?
-  supplier          String?
-  supplierReference String?
-  purchasePrice     Decimal @default(0) @db.Decimal(12, 2)
-  transportCost     Decimal @default(0) @db.Decimal(12, 2)
-  preparationCost   Decimal @default(0) @db.Decimal(12, 2)
-  accessoriesCost   Decimal @default(0) @db.Decimal(12, 2)
-  otherCosts        Decimal @default(0) @db.Decimal(12, 2)
-  // costPrice = purchasePrice + transportCost + preparationCost + accessoriesCost + otherCosts
-  costPrice         Decimal @default(0) @db.Decimal(12, 2)
-  sellingPrice      Decimal @default(0) @db.Decimal(12, 2)
-  // marginAmount = sellingPrice - costPrice
-  marginAmount      Decimal @default(0) @db.Decimal(12, 2)
-  // marginPercent = marginAmount / sellingPrice * 100
-  marginPercent     Decimal @default(0) @db.Decimal(7, 2)
-  userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([userId])
-}
-
-// --- AI Import module (Ticket #009.2) ---
-// Tracks each supplier URL import attempt and its lifecycle status.
-model ImportJob {
-  id        String          @id @default(uuid())
-  url       String
-  status    ImportJobStatus @default(PENDING)
-  // userId is nullable to allow anonymous/demo imports
-  userId    String?
-  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  @@index([userId])
+/// Roles utilisateurs dans la hierarchie commerciale.
+/// CEO voit toutes les donnees de l organisation.
+/// SALES_REP voit uniquement ses propres donnees.
+enum UserRole {
+  CEO
+  REGIONAL_DIRECTOR
+  SECTOR_DIRECTOR
+  SITE_DIRECTOR
+  SALES_MANAGER
+  SALES_REP
 }
 
 enum ProspectStatus {
@@ -105,4 +43,193 @@ enum ImportJobStatus {
   PROCESSING
   SUCCESS
   FAILED
+}
+
+// ============================================================
+// ORGANISATION MULTI-TENANT
+// ============================================================
+
+/// Entreprise cliente (tenant SaaS).
+/// Chaque organisation est completement isolee.
+model Organization {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  logoUrl        String?
+  primaryColor   String?  @default("#3B82F6")
+  secondaryColor String?  @default("#1E40AF")
+  website        String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  regions        Region[]
+  users          User[]
+
+  @@index([slug])
+}
+
+/// Region geographique appartenant a une organisation.
+model Region {
+  id             String       @id @default(uuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  sectors        Sector[]
+  users          User[]
+
+  @@index([organizationId])
+}
+
+/// Secteur commercial appartenant a une region.
+model Sector {
+  id        String   @id @default(uuid())
+  name      String
+  regionId  String
+  region    Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sites     Site[]
+  users     User[]
+
+  @@index([regionId])
+}
+
+/// Site physique ou point de vente appartenant a un secteur.
+model Site {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  city      String?
+  sectorId  String
+  sector    Sector   @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+
+  @@index([sectorId])
+}
+
+// ============================================================
+// UTILISATEURS ET HIERARCHIE
+// ============================================================
+
+/// Utilisateur de la plateforme, rattache a une organisation.
+/// Supporte la hierarchie manager/subordonnes et les roles metier.
+model User {
+  id      String   @id @default(uuid())
+  email   String   @unique
+  name    String?
+  /// ID Supabase Auth (auth.users.id)
+  authId  String?  @unique
+  role    UserRole @default(SALES_REP)
+  isActive Boolean @default(true)
+
+  /// Organisation (tenant SaaS)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  /// Rattachement geographique selon le role
+  regionId String?
+  region   Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+
+  sectorId String?
+  sector   Sector? @relation(fields: [sectorId], references: [id], onDelete: SetNull)
+
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Hierarchie manager/subordonnes (auto-reference)
+  managerId    String?
+  manager      User?  @relation("UserHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates User[] @relation("UserHierarchy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Donnees metier dont cet utilisateur est proprietaire
+  ownedProspects Prospect[]  @relation("ProspectOwner")
+  ownedProducts  Product[]   @relation("ProductOwner")
+  ownedImportJobs ImportJob[] @relation("ImportJobOwner")
+
+  @@index([organizationId])
+  @@index([managerId])
+  @@index([role])
+  @@index([siteId])
+}
+
+// ============================================================
+// DONNEES METIER
+// ============================================================
+
+model Prospect {
+  id           String         @id @default(uuid())
+  name         String
+  company      String?
+  email        String?
+  value        Decimal        @default(0) @db.Decimal(12, 2)
+  status       ProspectStatus @default(NEW)
+  contactName  String?
+  phone        String?
+  mobile       String?
+  website      String?
+  address      String?
+  postalCode   String?
+  city         String?
+  country      String?
+  vatNumber    String?
+  clientStatus ClientStatus   @default(PROSPECT)
+  notes        String?
+
+  /// Proprietaire de la donnee — applique les regles de visibilite
+  ownerId String
+  owner   User   @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model Product {
+  id                String  @id @default(uuid())
+  name              String
+  brand             String?
+  supplier          String?
+  supplierReference String?
+  purchasePrice     Decimal @default(0) @db.Decimal(12, 2)
+  transportCost     Decimal @default(0) @db.Decimal(12, 2)
+  preparationCost   Decimal @default(0) @db.Decimal(12, 2)
+  accessoriesCost   Decimal @default(0) @db.Decimal(12, 2)
+  otherCosts        Decimal @default(0) @db.Decimal(12, 2)
+  costPrice         Decimal @default(0) @db.Decimal(12, 2)
+  sellingPrice      Decimal @default(0) @db.Decimal(12, 2)
+  marginAmount      Decimal @default(0) @db.Decimal(12, 2)
+  marginPercent     Decimal @default(0) @db.Decimal(7, 2)
+
+  /// Proprietaire de la donnee — applique les regles de visibilite
+  ownerId String
+  owner   User   @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+/// Suivi des imports fournisseurs IA (Ticket 009.2)
+model ImportJob {
+  id     String          @id @default(uuid())
+  url    String
+  status ImportJobStatus @default(PENDING)
+
+  /// Proprietaire de la donnee
+  ownerId String?
+  owner   User?   @relation("ImportJobOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
 }

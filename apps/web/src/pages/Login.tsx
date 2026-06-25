@@ -87,7 +87,7 @@ export function Login() {
               {busy ? '…' : mode === 'in' ? 'Se connecter' : "S'inscrire"}
             </Button>
 
-            {!configured && (
+            {!configured && import.meta.env.DEV && (
               <Button
                 variant="secondary"
                 className="w-full"

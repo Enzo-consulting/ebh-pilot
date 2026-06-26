@@ -155,11 +155,204 @@ model BusinessUnit {
   description    String?
   isActive       Boolean      @default(true)
   organizationId String
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  CEO
+  REGIONAL_DIRECTOR
+  SECTOR_DIRECTOR
+  SITE_DIRECTOR
+  SALES_MANAGER
+  SALES_REP
+}
+
+/// Theme par defaut de l interface pour cette organisation.
+enum Theme {
+  LIGHT
+  DARK
+  AUTO
+}
+
+enum ProspectStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+enum ClientStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+}
+
+enum ImportJobStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+// ============================================================
+// MODULE ENGINE — Ticket 016
+// ============================================================
+
+/// Categorie fonctionnelle d un module.
+enum ModuleCategory {
+  SALES
+  OPERATIONS
+  FINANCE
+  HR
+  ANALYTICS
+  AI
+  INTEGRATION
+  COMMUNICATION
+  DOCUMENTS
+  MOBILE
+}
+
+/// Code unique d une fonctionnalite activable par organisation.
+enum FeatureCode {
+  AI_TRANSLATION
+  AI_ANALYSIS
+  AI_IMPORT
+  AI_ASSISTANT
+  PDF_GENERATION
+  EXPORT_EXCEL
+  EXPORT_PDF
+  DOCUMENTS
+  EMAILING
+  SMS
+  WHATSAPP
+  PUSH_NOTIFICATIONS
+  YOUSIGN
+  DOCUSIGN
+  API_ACCESS
+  WEBHOOK
+  REPORTING
+  ADVANCED_ANALYTICS
+  CUSTOM_DASHBOARDS
+  MOBILE_APP
+  GPS_TRACKING
+  QR_SCAN
+  BARCODE_SCAN
+  OFFLINE_MODE
+  CUSTOM_DOMAIN
+  WHITE_LABEL
+  CHALLENGES
+  LEADERBOARD
+  AUDIT_LOG
+  MULTI_ORGANIZATION
+  SSO
+}
+
+// ============================================================
+// AUDIT ENGINE — Ticket 018
+// ============================================================
+
+/// Type d evenement de domaine pour le journal d audit.
+/// Miroir de l enum DomainEvent du Ticket 017.
+enum DomainEventType {
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  PROSPECT_CREATED
+  PROSPECT_UPDATED
+  PROSPECT_DELETED
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  IMPORT_STARTED
+  IMPORT_COMPLETED
+  IMPORT_FAILED
+  DOCUMENT_GENERATED
+  DOCUMENT_SIGNED
+  TASK_CREATED
+  TASK_COMPLETED
+  AI_REQUESTED
+  AI_COMPLETED
+  WORKFLOW_STARTED
+  WORKFLOW_FINISHED
+  NOTIFICATION_CREATED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  MODULE_ENABLED
+  FEATURE_ENABLED
+}
+
+// ============================================================
+// ORGANISATION MULTI-TENANT — WHITE LABEL
+// ============================================================
+
+model Organization {
+  id                  String   @id @default(uuid())
+  name                String
+  displayName         String?
+  slug                String   @unique
+  tagline             String?
+  logoUrl             String?
+  logoCompactUrl      String?
+  faviconUrl          String?
+  loginImageUrl       String?
+  primaryColor        String?  @default("#3B82F6")
+  secondaryColor      String?  @default("#1E40AF")
+  accentColor         String?  @default("#F59E0B")
+  defaultTheme        Theme    @default(LIGHT)
+  website             String?
+  supportEmail        String?
+  supportPhone        String?
+  customDomain        String?  @unique
+  language            String   @default("fr")
+  timezone            String   @default("Europe/Paris")
+  currency            String   @default("EUR")
+  dateFormat          String   @default("DD/MM/YYYY")
+  numberFormat        String   @default(",")
+  privacyPolicyUrl    String?
+  termsUrl            String?
+  footerLink          String?
+  footerText          String?
+  isWhiteLabelEnabled Boolean  @default(false)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  businessUnits BusinessUnit[]
+  regions       Region[]
+  users         User[]
+  modules       OrganizationModule[]
+  features      OrganizationFeature[]
+  auditEvents   AuditEvent[]
+
+  @@index([slug])
+  @@index([customDomain])
+}
+
+model BusinessUnit {
+  id             String       @id @default(uuid())
+  name           String
+  code           String?
+  description    String?
+  isActive       Boolean      @default(true)
+  organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  regions        Region[]
-  users          User[]
+
+  regions Region[]
+  users   User[]
 
   @@index([organizationId])
 }
@@ -173,8 +366,9 @@ model Region {
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  sectors        Sector[]
-  users          User[]
+
+  sectors Sector[]
+  users   User[]
 
   @@index([organizationId])
   @@index([businessUnitId])
@@ -187,8 +381,9 @@ model Sector {
   region    Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  sites     Site[]
-  users     User[]
+
+  sites Site[]
+  users User[]
 
   @@index([regionId])
 }
@@ -202,7 +397,8 @@ model Site {
   sector    Sector   @relation(fields: [sectorId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  users     User[]
+
+  users User[]
 
   @@index([sectorId])
 }
@@ -233,9 +429,11 @@ model User {
   subordinates   User[]        @relation("UserHierarchy")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  ownedProspects  Prospect[]   @relation("ProspectOwner")
-  ownedProducts   Product[]    @relation("ProductOwner")
-  ownedImportJobs ImportJob[]  @relation("ImportJobOwner")
+
+  ownedProspects  Prospect[]  @relation("ProspectOwner")
+  ownedProducts   Product[]   @relation("ProductOwner")
+  ownedImportJobs ImportJob[] @relation("ImportJobOwner")
+  auditEvents     AuditEvent[]
 
   @@index([organizationId])
   @@index([businessUnitId])
@@ -249,27 +447,27 @@ model User {
 // ============================================================
 
 model Prospect {
-  id          String         @id @default(uuid())
-  name        String
-  company     String?
-  email       String?
-  value       Decimal        @default(0) @db.Decimal(12, 2)
-  status      ProspectStatus @default(NEW)
-  contactName String?
-  phone       String?
-  mobile      String?
-  website     String?
-  address     String?
-  postalCode  String?
-  city        String?
-  country     String?
-  vatNumber   String?
+  id           String        @id @default(uuid())
+  name         String
+  company      String?
+  email        String?
+  value        Decimal       @default(0) @db.Decimal(12, 2)
+  status       ProspectStatus @default(NEW)
+  contactName  String?
+  phone        String?
+  mobile       String?
+  website      String?
+  address      String?
+  postalCode   String?
+  city         String?
+  country      String?
+  vatNumber    String?
   clientStatus ClientStatus  @default(PROSPECT)
-  notes       String?
-  ownerId     String
-  owner       User           @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  notes        String?
+  ownerId      String
+  owner        User          @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([ownerId])
 }
@@ -326,6 +524,7 @@ model Module {
   isActive    Boolean        @default(true)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+
   organizations OrganizationModule[]
 
   @@index([code])
@@ -343,6 +542,7 @@ model Feature {
   isBeta      Boolean     @default(false)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
   organizations OrganizationFeature[]
 
   @@index([code])
@@ -385,4 +585,126 @@ model OrganizationFeature {
   @@unique([organizationId, featureId])
   @@index([organizationId])
   @@index([featureId])
+}
+
+// ============================================================
+// AUDIT ENGINE — Ticket 018
+// ============================================================
+
+/// Journal d audit immuable de toutes les actions importantes.
+///
+/// SECURITE :
+/// - Aucune mise a jour autorisee (pas de updateAuditEvent)
+/// - Aucune suppression autorisee (pas de deleteAuditEvent)
+/// - Seule l insertion est permise via auditService.createAudit()
+///
+/// VOLUME : prevu pour plusieurs millions de lignes.
+/// Utiliser le partitionnement PostgreSQL par occurredAt (range partition par mois).
+///
+/// CONFORMITE : RGPD, ISO 27001, SOC 2, HIPAA-ready.
+///
+/// CHAMPS TECHNIQUES :
+/// - before/after : snapshot de l objet avant et apres modification (diff)
+/// - ipAddress, userAgent, device, browser : contexte de securite
+/// - country, city : geolocalisation pour conformite et detection d anomalies
+/// - isSystemEvent : true si declenche par le systeme (cron, import, IA)
+///                   false si declenche par une action utilisateur directe
+model AuditEvent {
+  /// Identifiant interne de l entree d audit (UUID v4)
+  id             String          @id @default(uuid())
+
+  /// Identifiant de l evenement emis par l Event Bus (Ticket 017)
+  /// Permet de correlere une entree d audit avec un evenement specifique.
+  eventId        String          @unique
+
+  /// Organisation concernee (isolation multi-tenant — Ticket 014)
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Business Unit concernee (Ticket 014B) — null si action globale
+  businessUnitId String?
+
+  /// Identifiant de l utilisateur qui a declenche l action
+  /// Null uniquement pour les evenements systeme (isSystemEvent = true)
+  userId         String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Type de ressource affectee (ex: "prospect", "client", "product", "user")
+  resourceType   String
+
+  /// Identifiant de la ressource affectee
+  resourceId     String
+
+  /// Type d evenement de domaine (miroir de DomainEvent — Ticket 017)
+  event          DomainEventType
+
+  /// Quand l evenement s est produit (fourni par l Event Bus)
+  occurredAt     DateTime
+
+  // ── Contexte de securite ──────────────────────────────────────────────────
+
+  /// Adresse IP du client (IPv4 ou IPv6)
+  /// Null pour les evenements systeme
+  ipAddress      String?
+
+  /// User-Agent complet du navigateur ou de l application mobile
+  userAgent      String?
+
+  /// Type d appareil detecte (desktop, mobile, tablet, api, system)
+  device         String?
+
+  /// Nom du navigateur detecte (Chrome, Firefox, Safari, Edge, mobile-app)
+  browser        String?
+
+  /// Pays detecte par geolocalisation IP (code ISO 3166-1 alpha-2, ex: "FR")
+  country        String?
+
+  /// Ville detectee par geolocalisation IP
+  city           String?
+
+  // ── Donnees de l evenement ────────────────────────────────────────────────
+
+  /// Metadonnees libres transmises par l emetteur de l evenement
+  /// Exemples : { prospectName, source } pour PROSPECT_CREATED
+  ///            { errorCode, rowCount } pour IMPORT_FAILED
+  metadata       Json            @default("{}")
+
+  /// Snapshot de l objet AVANT la modification (pour les events UPDATE/DELETE)
+  /// Null pour les evenements de creation ou les evenements sans diff
+  before         Json?
+
+  /// Snapshot de l objet APRES la modification (pour les events CREATE/UPDATE)
+  /// Null pour les evenements de suppression ou sans diff
+  after          Json?
+
+  // ── Classification ────────────────────────────────────────────────────────
+
+  /// true si l evenement a ete declenche par le systeme (cron, import, IA)
+  /// false si declenche par une action directe d un utilisateur humain
+  isSystemEvent  Boolean         @default(false)
+
+  /// Date d insertion dans la base (differ de occurredAt en cas de latence)
+  createdAt      DateTime        @default(now())
+
+  // ── Index pour les performances ───────────────────────────────────────────
+  // Optimises pour les requetes les plus frequentes :
+  // 1. Audit par organisation (page d audit admin)
+  // 2. Audit par utilisateur (page de profil, RH)
+  // 3. Audit par ressource (historique d un prospect, client, etc.)
+  // 4. Audit par periode (reporting mensuel, archivage)
+  // 5. Audit par type d evenement (detection d anomalies, alertes)
+  // 6. Correlation avec l Event Bus via eventId
+
+  @@index([organizationId])
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, event])
+  @@index([organizationId, resourceType, resourceId])
+  @@index([userId])
+  @@index([userId, occurredAt])
+  @@index([resourceType, resourceId])
+  @@index([event])
+  @@index([occurredAt])
+  @@index([businessUnitId])
+  @@index([isSystemEvent])
+  @@map("audit_events")
 }

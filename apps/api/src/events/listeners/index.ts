@@ -93,11 +93,106 @@ export async function NotificationListener(payload: DomainEventPayload): Promise
 export async function AuditListener(payload: DomainEventPayload): Promise<void> {
   // TODO: implement audit log writing
   // Example future implementation:
-  // const { eventId, event, organizationId, businessUnitId, userId, resourceType, resourceId, occurredAt, metadata } = payload;
-  // await prisma.auditLog.create({
-  //   data: { eventId, event, organizationId, businessUnitId, userId, resourceType, resourceId, occurredAt, metadata }
-  // });
+ * listeners/index.ts — Skeleton Listeners
+ *
+ * Ticket 017 — Core Event Bus & Domain Events
+ * Ticket 018 — Audit Engine (AuditListener updated)
+ *
+ * UPDATED IN TICKET 018:
+ * AuditListener now calls createAudit() from the Audit Engine.
+ * It maps DomainEventPayload to CreateAuditInput and persists an AuditEvent.
+ * All other listeners remain as skeletons (Promise.resolve()).
+ */
+
+import { DomainEventPayload } from '../types.js';
+import { createAudit } from '../../audit/index.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATION LISTENER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * NotificationListener — Skeleton
+ *
+ * Future: in-app, email, push, SMS, WhatsApp notifications.
+ * Feature flags: EMAILING, SMS, WHATSAPP, MOBILE_APP (Ticket 016)
+ * White label: use branding.supportEmail as sender (Ticket 014C)
+ */
+export async function NotificationListener(payload: DomainEventPayload): Promise<void> {
+  // TODO: implement notification routing
   return Promise.resolve();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LISTENER — Updated in Ticket 018
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * AuditListener
+ *
+ * Receives every domain event and persists an immutable AuditEvent
+ * via auditService.createAudit() (Ticket 018).
+ *
+ * SECURITY CONTEXT:
+ * When available, security context (IP, userAgent, device, browser, country, city)
+ * is extracted from payload.metadata.auditContext.
+ * Future middleware will inject this automatically before events are emitted.
+ *
+ * DIFF DATA:
+ * When available, before/after snapshots are extracted from payload.metadata.
+ * Future UPDATE events will carry these fields.
+ *
+ * NEVER THROWS:
+ * createAudit() swallows its own errors.
+ * A failed audit write never propagates to the business layer.
+ */
+export async function AuditListener(payload: DomainEventPayload): Promise<void> {
+  // Extract optional security context injected by future middleware
+  const auditContext = payload.metadata?.auditContext as
+    | {
+        ipAddress?: string;
+        userAgent?: string;
+        device?: string;
+        browser?: string;
+        country?: string;
+        city?: string;
+      }
+    | undefined;
+
+  // Extract before/after diff for UPDATE/DELETE events
+  const before = payload.metadata?.before as Record<string, unknown> | undefined;
+  const after  = payload.metadata?.after  as Record<string, unknown> | undefined;
+
+  // Clean metadata: remove internal fields before storing
+  const cleanMetadata = { ...payload.metadata };
+  delete cleanMetadata.auditContext;
+  delete cleanMetadata.before;
+  delete cleanMetadata.after;
+
+  await createAudit({
+    eventId:        payload.eventId,
+    organizationId: payload.organizationId,
+    businessUnitId: payload.businessUnitId ?? null,
+    userId:         payload.userId ?? null,
+    resourceType:   payload.resourceType,
+    resourceId:     payload.resourceId,
+    event:          payload.event,
+    occurredAt:     payload.occurredAt,
+
+    // Security context (null until auditContextMiddleware is implemented)
+    ipAddress:  auditContext?.ipAddress  ?? null,
+    userAgent:  auditContext?.userAgent  ?? null,
+    device:     auditContext?.device     ?? null,
+    browser:    auditContext?.browser    ?? null,
+    country:    auditContext?.country    ?? null,
+    city:       auditContext?.city       ?? null,
+
+    // Event data
+    metadata:      cleanMetadata,
+    before:        before  ?? null,
+    after:         after   ?? null,
+    isSystemEvent: payload.metadata?.isSystemEvent === true,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,32 +200,13 @@ export async function AuditListener(payload: DomainEventPayload): Promise<void> 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * WorkflowListener
+ * WorkflowListener — Skeleton
  *
- * Future responsibilities:
- * - Trigger automated workflow sequences based on domain events
- * - Examples:
- *   - PROSPECT_CREATED → start onboarding sequence
- *   - CLIENT_CREATED → start welcome sequence
- *   - IMPORT_COMPLETED → trigger post-import data validation
- *   - TASK_CREATED → assign to agent based on rules
- * - Support approval flows (manager must approve before next step)
- * - Support escalation rules (no action after X days → escalate)
- * - Support SLA monitoring
- *
- * Integration points:
- * - Workflow Engine (future ticket)
- * - Module: WORKFLOW module (Ticket 016)
- * - Multi-tenant: workflow rules defined per organization (Ticket 014)
+ * Future: automated sequences (onboarding, approval flows, SLA monitoring).
+ * Module: WORKFLOW (Ticket 016)
  */
 export async function WorkflowListener(payload: DomainEventPayload): Promise<void> {
-  // TODO: implement workflow triggering logic
-  // Example future implementation:
-  // const { event, organizationId, resourceType, resourceId } = payload;
-  // const workflows = await getActiveWorkflows(organizationId, event);
-  // for (const workflow of workflows) {
-  //   await triggerWorkflow(workflow.id, { resourceType, resourceId, ...payload });
-  // }
+  // TODO: implement workflow triggering
   return Promise.resolve();
 }
 
@@ -139,26 +215,13 @@ export async function WorkflowListener(payload: DomainEventPayload): Promise<voi
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * StatisticsListener
+ * StatisticsListener — Skeleton
  *
- * Future responsibilities:
- * - Update real-time counters (prospects created today, imports this month)
- * - Feed BI dashboards
- * - Track conversion rates (prospect → client)
- * - Track import success/failure rates
- * - Track AI usage by organization
- * - Support gamification counters (Challenges module, Ticket 016 mobile prep)
- *
- * Integration points:
- * - Module: BI, REPORTING (Ticket 016)
- * - Multi-tenant: always scoped to organizationId (Ticket 014)
- * - Business Unit: can aggregate at BU level (Ticket 014B)
+ * Future: real-time counters, BI dashboards, gamification.
+ * Modules: BI, REPORTING (Ticket 016)
  */
 export async function StatisticsListener(payload: DomainEventPayload): Promise<void> {
   // TODO: implement statistics update logic
-  // Example future implementation:
-  // const { event, organizationId, businessUnitId, occurredAt } = payload;
-  // await incrementCounter({ event, organizationId, businessUnitId, date: occurredAt });
   return Promise.resolve();
 }
 
@@ -167,29 +230,13 @@ export async function StatisticsListener(payload: DomainEventPayload): Promise<v
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * AIListener
+ * AIListener — Skeleton
  *
- * Future responsibilities:
- * - Route AI requests to the appropriate AI provider (OpenAI, Anthropic, Mistral)
- * - Log AI usage per organization (for billing, quota, analytics)
- * - Store AI results in the database for caching and audit
- * - Track token consumption per organization
- * - Support fallback providers when primary is unavailable
- *
- * Integration points:
- * - Feature: AI_ANALYSIS, AI_TRANSLATION (Ticket 016)
- * - Module: IA module (Ticket 016)
- * - Multi-tenant: usage isolated per organization (Ticket 014)
- * - White label: AI branding can be customized per client (Ticket 014C)
+ * Future: AI request routing, usage logging, quota management.
+ * Features: AI_ANALYSIS, AI_TRANSLATION (Ticket 016)
  */
 export async function AIListener(payload: DomainEventPayload): Promise<void> {
-  // TODO: implement AI request routing and logging
-  // Example future implementation:
-  // const { event, organizationId, userId, metadata } = payload;
-  // if (event === DomainEvent.AI_REQUESTED) {
-  //   const { model, prompt, feature } = metadata as { model: string; prompt: string; feature: string };
-  //   await logAIRequest({ organizationId, userId, model, feature, occurredAt: payload.occurredAt });
-  // }
+  // TODO: implement AI routing and logging
   return Promise.resolve();
 }
 
@@ -198,35 +245,14 @@ export async function AIListener(payload: DomainEventPayload): Promise<void> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * MobileSyncListener
+ * MobileSyncListener — Skeleton
  *
- * Future responsibilities:
- * - Push data changes to React Native / Flutter mobile clients
- * - Support real-time sync via WebSockets / Server-Sent Events
- * - Support offline sync (queue changes when mobile is offline)
- * - Handle: Prospects, Clients, Tasks, Notifications
- * - Handle mobile-specific features:
- *   - Challenges (gamification)
- *   - To-do (task management)
- *   - Agenda (calendar events)
- *   - Push notifications (FCM, APNs)
- *   - GPS data (geofencing, field sales)
- *   - QR code scan events
- *   - Barcode scan events
- *
- * Integration points:
- * - Feature: MOBILE_APP (Ticket 016)
- * - Multi-tenant: sync only data for user's organization (Ticket 014)
- * - Business Unit: filter by user's BU (Ticket 014B)
+ * Future: real-time sync to React Native / Flutter clients.
+ * Covers: Challenges, Todo, Agenda, Push, GPS, QR, Barcode (Ticket 016 prep)
+ * Feature: MOBILE_APP (Ticket 016)
  */
 export async function MobileSyncListener(payload: DomainEventPayload): Promise<void> {
   // TODO: implement mobile sync logic
-  // Example future implementation:
-  // const { event, organizationId, userId, resourceType, resourceId } = payload;
-  // const mobileClients = await getConnectedMobileClients(organizationId);
-  // for (const client of mobileClients) {
-  //   await pushEventToClient(client.socketId, { event, resourceType, resourceId });
-  // }
   return Promise.resolve();
 }
 
@@ -235,30 +261,12 @@ export async function MobileSyncListener(payload: DomainEventPayload): Promise<v
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * DocumentListener
+ * DocumentListener — Skeleton
  *
- * Future responsibilities:
- * - Archive generated documents (PDF, Excel, CSV)
- * - Notify relevant users when a document is ready
- * - Track e-signature status (pending, signed, rejected)
- * - Support YouSign, DocuSign integration
- * - Store document metadata in the database
- * - Handle document expiry and cleanup
- *
- * Integration points:
- * - Feature: PDF_GENERATION, DOCUMENTS, YOUSIGN (Ticket 016)
- * - Module: Documents module (Ticket 016)
- * - Multi-tenant: documents isolated per organization (Ticket 014)
- * - White label: document templates can be branded (Ticket 014C)
+ * Future: document archiving, signatures, YouSign/DocuSign integration.
+ * Features: PDF_GENERATION, DOCUMENTS, YOUSIGN (Ticket 016)
  */
 export async function DocumentListener(payload: DomainEventPayload): Promise<void> {
-  // TODO: implement document archiving and notification logic
-  // Example future implementation:
-  // const { event, organizationId, userId, resourceId, metadata } = payload;
-  // if (event === DomainEvent.DOCUMENT_GENERATED) {
-  //   const { documentUrl, documentType } = metadata as { documentUrl: string; documentType: string };
-  //   await archiveDocument({ organizationId, userId, resourceId, documentUrl, documentType });
-  //   await notifyUserDocumentReady({ userId, documentUrl });
-  // }
+  // TODO: implement document archiving and notification
   return Promise.resolve();
 }

@@ -12,9 +12,6 @@ datasource db {
 // ENUMS
 // ============================================================
 
-/// Roles utilisateurs dans la hierarchie commerciale.
-/// CEO voit toutes les donnees de l organisation.
-/// SALES_REP voit uniquement ses propres donnees.
 enum UserRole {
   CEO
   REGIONAL_DIRECTOR
@@ -49,20 +46,19 @@ enum ImportJobStatus {
 // ORGANISATION MULTI-TENANT
 // ============================================================
 
-/// Entreprise cliente (tenant SaaS).
-/// Chaque organisation est completement isolee.
+/// Entreprise cliente (tenant SaaS). Chaque organisation est completement isolee.
 /// Une organisation peut posseder une ou plusieurs BusinessUnit.
 model Organization {
-  id             String   @id @default(uuid())
+  id             String         @id @default(uuid())
   name           String
-  slug           String   @unique
+  slug           String         @unique
   logoUrl        String?
-  primaryColor   String?  @default("#3B82F6")
-  secondaryColor String?  @default("#1E40AF")
+  primaryColor   String?        @default("#3B82F6")
+  secondaryColor String?        @default("#1E40AF")
   website        String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   businessUnits  BusinessUnit[]
   regions        Region[]
   users          User[]
@@ -71,14 +67,13 @@ model Organization {
 }
 
 /// Division, marque, enseigne ou filiale appartenant a une organisation.
-/// Niveau intermediaire entre l Organisation et les Regions.
-/// Generique : peut representer une marque (Renault/Dacia), une enseigne,
-/// une division metier (Tourisme/Poids Lourds), une activite (Cycle/Running), etc.
-/// Une organisation mono-activite n aura qu une seule BusinessUnit.
+/// Niveau intermediaire generique entre Organisation et Region.
+/// Exemples : marque (Renault/Dacia), division (Tourisme/PL), activite (Cycle/Running).
+/// Une organisation mono-activite possede une seule BusinessUnit.
 model BusinessUnit {
   id             String       @id @default(uuid())
   name           String
-  /// Code court optionnel pour l identification (ex: "BU_TOURISME", "DACIA")
+  /// Code court optionnel (ex: "BU_TOURISME", "DACIA", "RUNNING")
   code           String?
   description    String?
   isActive       Boolean      @default(true)
@@ -93,13 +88,13 @@ model BusinessUnit {
 }
 
 /// Region geographique appartenant a une organisation,
-/// et optionnellement rattachee a une BusinessUnit.
+/// optionnellement rattachee a une BusinessUnit.
 model Region {
   id             String        @id @default(uuid())
   name           String
   organizationId String
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  /// Rattachement a une BusinessUnit (optionnel pour compatibilite ascendante)
+  /// Rattachement a une BusinessUnit (optionnel — null si organisation mono-activite)
   businessUnitId String?
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
@@ -147,23 +142,20 @@ model Site {
 /// Utilisateur de la plateforme, rattache a une organisation.
 /// Supporte la hierarchie manager/subordonnes et les roles metier.
 model User {
-  id      String   @id @default(uuid())
-  email   String   @unique
-  name    String?
-  /// ID Supabase Auth (auth.users.id)
-  authId  String?  @unique
-  role    UserRole @default(SALES_REP)
-  isActive Boolean @default(true)
+  id       String   @id @default(uuid())
+  email    String   @unique
+  name     String?
+  authId   String?  @unique
+  role     UserRole @default(SALES_REP)
+  isActive Boolean  @default(true)
 
-  /// Organisation (tenant SaaS)
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  /// BusinessUnit (optionnel — null si l organisation est mono-activite ou si non rattache)
+  /// BusinessUnit (null si organisation mono-activite ou si non rattache)
   businessUnitId String?
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
 
-  /// Rattachement geographique selon le role
   regionId String?
   region   Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
 
@@ -173,7 +165,6 @@ model User {
   siteId String?
   site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
-  /// Hierarchie manager/subordonnes (auto-reference)
   managerId    String?
   manager      User?  @relation("UserHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
   subordinates User[] @relation("UserHierarchy")
@@ -181,7 +172,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// Donnees metier dont cet utilisateur est proprietaire
   ownedProspects  Prospect[]  @relation("ProspectOwner")
   ownedProducts   Product[]   @relation("ProductOwner")
   ownedImportJobs ImportJob[] @relation("ImportJobOwner")
@@ -215,13 +205,10 @@ model Prospect {
   vatNumber    String?
   clientStatus ClientStatus   @default(PROSPECT)
   notes        String?
-
-  /// Proprietaire de la donnee — applique les regles de visibilite
-  ownerId String
-  owner   User   @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  ownerId      String
+  owner        User           @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@index([ownerId])
 }
@@ -241,29 +228,23 @@ model Product {
   sellingPrice      Decimal @default(0) @db.Decimal(12, 2)
   marginAmount      Decimal @default(0) @db.Decimal(12, 2)
   marginPercent     Decimal @default(0) @db.Decimal(7, 2)
-
-  /// Proprietaire de la donnee — applique les regles de visibilite
-  ownerId String
-  owner   User   @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  ownerId           String
+  owner             User    @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([ownerId])
 }
 
 /// Suivi des imports fournisseurs IA (Ticket 009.2)
 model ImportJob {
-  id     String          @id @default(uuid())
-  url    String
-  status ImportJobStatus @default(PENDING)
-
-  /// Proprietaire de la donnee
-  ownerId String?
-  owner   User?   @relation("ImportJobOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String          @id @default(uuid())
+  url       String
+  status    ImportJobStatus @default(PENDING)
+  ownerId   String?
+  owner     User?           @relation("ImportJobOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@index([ownerId])
 }

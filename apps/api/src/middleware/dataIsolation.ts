@@ -1,26 +1,29 @@
 /**
  * dataIsolation.ts
- * Ticket 014 — Fondations de l isolation des donnees et des permissions
+ * Ticket 014  — Fondations de l isolation des donnees et des permissions
  * Ticket 014B — Ajout du niveau BusinessUnit dans la hierarchie
+ * Ticket 015  — Integration complete : injectAuthUser() finalise
  *
  * Ce module expose :
  * 1. Les types de roles et leur hierarchie de visibilite
- * 2. Une fonction buildOwnerFilter() pour construire les filtres Prisma selon le role
- * 3. Une fonction assertCanMutate() pour valider CREATE/UPDATE/DELETE
- * 4. Un middleware Express requireRole() pour proteger les routes
+ * 2. buildOwnerFilter() — filtre Prisma WHERE selon le role utilisateur
+ * 3. assertCanMutate() — validation CREATE/UPDATE/DELETE
+ * 4. requireRole() — middleware Express de protection par role
+ * 5. injectAuthUser() — charge le User Prisma complet depuis le authId Supabase
  *
  * Hierarchie complete :
  * Organization -> BusinessUnit -> Region -> Sector -> Site -> User
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { prisma } from '../prisma.js';
 
 // ============================================================
 // TYPES
 // ============================================================
 
 export type UserRole =
-   | 'CEO'
+     | 'CEO'
   | 'REGIONAL_DIRECTOR'
   | 'SECTOR_DIRECTOR'
   | 'SITE_DIRECTOR'
@@ -29,35 +32,41 @@ export type UserRole =
 
 /**
  * Contexte utilisateur authentifie.
- * Provient du middleware d authentification Supabase.
+ * Injecte par injectAuthUser() dans req.authUser.
  * businessUnitId est null si l organisation est mono-activite.
  */
 export interface AuthenticatedUser {
-   id: string;
-   authId: string;
-   role: UserRole;
-   organizationId: string | null;
-   /// Null si l organisation est mono-activite ou si l utilisateur n est pas rattache a une BU
-  businessUnitId: string | null;
-   regionId: string | null;
-   sectorId: string | null;
-   siteId: string | null;
-   managerId: string | null;
-   subordinateIds?: string[];
+     id: string;
+     authId: string;
+     role: UserRole;
+     organizationId: string | null;
+     businessUnitId: string | null;
+     regionId: string | null;
+     sectorId: string | null;
+     siteId: string | null;
+     managerId: string | null;
+     subordinateIds?: string[];
+}
+
+/**
+ * Extension de Request Express pour inclure l utilisateur authentifie.
+ */
+export interface AuthedRequestWithUser extends Request {
+     userId?: string;
+     authUser?: AuthenticatedUser;
 }
 
 /**
  * Niveaux de visibilite disponibles.
- * BUSINESS_UNIT est le nouveau niveau entre REGION et ORGANIZATION.
  */
 export type VisibilityScope =
-   | 'PERSONAL'       // Uniquement ses propres donnees
-  | 'TEAM'           // Ses donnees + donnees de ses commerciaux directs
-  | 'SITE'           // Toutes les donnees du site
-  | 'SECTOR'         // Toutes les donnees du secteur
-  | 'REGION'         // Toutes les donnees de la region
-  | 'BUSINESS_UNIT'  // Toutes les donnees de la business unit (nouveau niveau 014B)
-  | 'ORGANIZATION';  // Toutes les donnees de l organisation
+     | 'PERSONAL'
+  | 'TEAM'
+  | 'SITE'
+  | 'SECTOR'
+  | 'REGION'
+  | 'BUSINESS_UNIT'
+  | 'ORGANIZATION';
 
 // ============================================================
 // HIERARCHIE DES ROLES
@@ -65,38 +74,26 @@ export type VisibilityScope =
 
 /**
  * Mappe chaque role sur son scope de visibilite naturel.
- *
- * CEO              => ORGANIZATION
- * REGIONAL_DIRECTOR => REGION
- * SECTOR_DIRECTOR  => SECTOR
- * SITE_DIRECTOR    => SITE
- * SALES_MANAGER    => TEAM
- * SALES_REP        => PERSONAL
- *
- * Note : BUSINESS_UNIT n est pas mappe a un role specifique.
- * Il est accessible par CEO quand businessUnitId est specifie dans un contexte de filtre.
- * Les directeurs regionaux voient leur region, pas toute la BU.
  */
 export const ROLE_VISIBILITY: Record<UserRole, VisibilityScope> = {
-   CEO: 'ORGANIZATION',
-   REGIONAL_DIRECTOR: 'REGION',
-   SECTOR_DIRECTOR: 'SECTOR',
-   SITE_DIRECTOR: 'SITE',
-   SALES_MANAGER: 'TEAM',
-   SALES_REP: 'PERSONAL',
+     CEO: 'ORGANIZATION',
+     REGIONAL_DIRECTOR: 'REGION',
+     SECTOR_DIRECTOR: 'SECTOR',
+     SITE_DIRECTOR: 'SITE',
+     SALES_MANAGER: 'TEAM',
+     SALES_REP: 'PERSONAL',
 };
 
 /**
- * Ordre de priorite des roles.
- * Utile pour comparer si un utilisateur peut agir sur une ressource d un autre.
+ * Ordre de priorite des roles (1 = plus bas, 6 = plus haut).
  */
 export const ROLE_LEVEL: Record<UserRole, number> = {
-   SALES_REP: 1,
-   SALES_MANAGER: 2,
-   SITE_DIRECTOR: 3,
-   SECTOR_DIRECTOR: 4,
-   REGIONAL_DIRECTOR: 5,
-   CEO: 6,
+     SALES_REP: 1,
+     SALES_MANAGER: 2,
+     SITE_DIRECTOR: 3,
+     SECTOR_DIRECTOR: 4,
+     REGIONAL_DIRECTOR: 5,
+     CEO: 6,
 };
 
 // ============================================================
@@ -107,154 +104,216 @@ export const ROLE_LEVEL: Record<UserRole, number> = {
  * Construit le filtre Prisma WHERE a appliquer sur ownerId
  * en fonction du role et du contexte de l utilisateur.
  *
- * Hierarchie complete prise en compte :
- * Organization -> BusinessUnit -> Region -> Sector -> Site -> User
- *
- * Si l organisation est mono-activite (businessUnitId = null sur l utilisateur),
- * les filtres se comportent exactement comme sans BusinessUnit.
+ * Utiliser dans les requetes findMany() pour appliquer
+ * automatiquement la hierarchie de visibilite.
  *
  * @param user - L utilisateur authentifie
- * @returns Objet Prisma WHERE compatible avec Prospect, Product, etc.
+ * @returns Objet Prisma WHERE compatible avec Prospect, Product, ImportJob
  */
 export function buildOwnerFilter(user: AuthenticatedUser): Record<string, unknown> {
-   const scope = ROLE_VISIBILITY[user.role];
+     const scope = ROLE_VISIBILITY[user.role];
 
   switch (scope) {
-   case 'PERSONAL':
-          return { ownerId: user.id };
+     case 'PERSONAL':
+              return { ownerId: user.id };
 
-   case 'TEAM': {
-          const teamIds = [user.id, ...(user.subordinateIds ?? [])];
-          return { ownerId: { in: teamIds } };
-   }
+     case 'TEAM': {
+              const ids = [user.id, ...(user.subordinateIds ?? [])];
+              return { ownerId: { in: ids } };
+     }
 
-   case 'SITE':
-          return { owner: { siteId: user.siteId } };
+     case 'SITE':
+              if (user.siteId) {
+                         return { owner: { siteId: user.siteId } };
+              }
+              return { ownerId: user.id };
 
-   case 'SECTOR':
-          return { owner: { sector: { id: user.sectorId } } };
+case 'SECTOR':
+              if (user.sectorId) {
+                         return { owner: { sectorId: user.sectorId } };
+              }
+              return { ownerId: user.id };
 
-   case 'REGION':
-          return { owner: { region: { id: user.regionId } } };
+     case 'REGION':
+              if (user.regionId) {
+                         return { owner: { regionId: user.regionId } };
+              }
+              return { ownerId: user.id };
 
-   case 'ORGANIZATION':
-          // Si un contexte BusinessUnit est actif (ex: CEO filtrant par BU),
-       // on peut restreindre la visibilite a la BU concernee.
-       // Par defaut : toute l organisation.
-       return { owner: { organizationId: user.organizationId } };
+     case 'BUSINESS_UNIT':
+              if (user.businessUnitId) {
+                         return { owner: { businessUnitId: user.businessUnitId } };
+              }
+              return { owner: { organizationId: user.organizationId } };
 
-   case 'BUSINESS_UNIT':
-          // Scope intermediaire : toutes les donnees de la BusinessUnit de l utilisateur.
-       // Utilise quand businessUnitId est renseigne et que la logique metier le requiert.
-       if (user.businessUnitId) {
-                return { owner: { businessUnitId: user.businessUnitId } };
-       }
-          // Fallback : si pas de BU, scope organisation entiere
-       return { owner: { organizationId: user.organizationId } };
+     case 'ORGANIZATION':
+              return { owner: { organizationId: user.organizationId } };
 
-   default:
-          return { ownerId: user.id };
+     default:
+              return { ownerId: user.id };
   }
 }
 
 /**
  * Construit un filtre restreint a une BusinessUnit specifique.
  * Utile pour les requetes de reporting cross-region au niveau BU.
- * Fonctionne meme si l organisation est mono-activite (retourne filtre org entiere).
  */
 export function buildBusinessUnitFilter(
-   user: AuthenticatedUser,
-   businessUnitId?: string
- ): Record<string, unknown> {
-   const buId = businessUnitId ?? user.businessUnitId;
-   if (!buId) {
-        return { owner: { organizationId: user.organizationId } };
-   }
-   return { owner: { businessUnitId: buId } };
+     user: AuthenticatedUser,
+     targetBusinessUnitId?: string,
+   ): Record<string, unknown> {
+     const buId = targetBusinessUnitId ?? user.businessUnitId;
+     if (buId) {
+            return { owner: { businessUnitId: buId } };
+     }
+     return { owner: { organizationId: user.organizationId } };
 }
 
 // ============================================================
-// CONTROLE DES MUTATIONS (CREATE / UPDATE / DELETE)
+// CONTROLES DE MUTATION
 // ============================================================
 
 /**
- * Verifie si un utilisateur peut modifier ou supprimer une ressource.
+ * Verifie si un utilisateur peut modifier/supprimer une ressource.
+ *
+ * Regles :
+ * - Un utilisateur peut toujours modifier ses propres ressources (ownerId === user.id)
+ * - Un manager peut modifier les ressources de ses subordonnees directs
+ * - Un directeur peut modifier les ressources de son perimetre (site, secteur, region)
+ * - Un CEO peut tout modifier dans son organisation
+ *
+ * @param user - L utilisateur authentifie
+ * @param resourceOwnerId - L ownerId de la ressource ciblee
+ * @returns true si l action est autorisee
  */
-export function canMutate(
-   currentUser: AuthenticatedUser,
-   resourceOwnerId: string
- ): boolean {
-   if (currentUser.id === resourceOwnerId) return true;
+export function canMutate(user: AuthenticatedUser, resourceOwnerId: string): boolean {
+     if (resourceOwnerId === user.id) return true;
 
-  const scope = ROLE_VISIBILITY[currentUser.role];
+  const scope = ROLE_VISIBILITY[user.role];
 
   switch (scope) {
-   case 'TEAM':
-          return (currentUser.subordinateIds ?? []).includes(resourceOwnerId);
-
-   case 'SITE':
-   case 'SECTOR':
-   case 'REGION':
-   case 'BUSINESS_UNIT':
-   case 'ORGANIZATION':
-          return true;
-
-   default:
-          return false;
+     case 'TEAM':
+              return (user.subordinateIds ?? []).includes(resourceOwnerId);
+     case 'SITE':
+     case 'SECTOR':
+     case 'REGION':
+     case 'BUSINESS_UNIT':
+     case 'ORGANIZATION':
+              return true;
+     default:
+              return false;
   }
 }
 
 /**
- * Lance une erreur si l utilisateur ne peut pas muter la ressource.
+ * Lance une erreur HTTP 403 si l utilisateur n a pas le droit de muter la ressource.
+ * A utiliser dans les routes PUT, PATCH et DELETE.
+ *
+ * @throws { status: 403, message: string } si non autorise
  */
 export function assertCanMutate(
-   currentUser: AuthenticatedUser,
-   resourceOwnerId: string
- ): void {
-   if (!canMutate(currentUser, resourceOwnerId)) {
-        throw new Error('FORBIDDEN: insufficient permissions to modify this resource');
-   }
+     user: AuthenticatedUser,
+     resourceOwnerId: string,
+   ): void {
+     if (!canMutate(user, resourceOwnerId)) {
+            const err = new Error('Forbidden: vous ne pouvez pas modifier cette ressource.');
+            (err as NodeJS.ErrnoException).code = '403';
+            throw err;
+     }
 }
 
 // ============================================================
-// MIDDLEWARE EXPRESS
+// MIDDLEWARES EXPRESS
 // ============================================================
 
 /**
- * Middleware Express : verifie que l utilisateur a au moins le role requis.
+ * Middleware Express : verifie que l utilisateur a au moins le role minimum.
+ *
+ * @param minimumRole - Role minimum requis
  */
 export function requireRole(minimumRole: UserRole) {
-   return (req: Request, res: Response, next: NextFunction): void => {
-        const user = (req as Request & { user?: AuthenticatedUser }).user;
-
-        if (!user) {
-               res.status(401).json({ error: 'Unauthorized: no authenticated user' });
-               return;
-        }
-
-        const userLevel = ROLE_LEVEL[user.role] ?? 0;
-        const requiredLevel = ROLE_LEVEL[minimumRole] ?? 0;
-
-        if (userLevel < requiredLevel) {
-               res.status(403).json({
-                        error: `Forbidden: requires role ${minimumRole} or higher`,
-                        yourRole: user.role,
-               });
-               return;
-        }
-
-        next();
-   };
+     return (req: AuthedRequestWithUser, res: Response, next: NextFunction): void => {
+            const user = req.authUser;
+            if (!user) {
+                     res.status(401).json({ error: 'Non authentifie.' });
+                     return;
+            }
+            if (ROLE_LEVEL[user.role] < ROLE_LEVEL[minimumRole]) {
+                     res.status(403).json({
+                                error: `Forbidden: requires role ${minimumRole} or higher`,
+                                yourRole: user.role,
+                     });
+                     return;
+            }
+            next();
+     };
 }
 
 /**
- * Middleware Express : injecte l utilisateur authentifie dans req.user.
- * Implementation complete a faire dans le ticket d integration des routes.
+ * Middleware Express : charge le User Prisma complet depuis le authId Supabase.
+ *
+ * Ticket 015 — Implementation complete.
+ *
+ * Ce middleware doit etre utilise APRES requireAuth() (qui injecte req.userId).
+ * Il enrichit la requete avec req.authUser (AuthenticatedUser) contenant
+ * toutes les relations de la hierarchie multi-tenant.
+ *
+ * Relations chargees :
+ * - organization, businessUnit, region, sector, site
+ * - manager (id seulement via managerId)
+ * - subordinates (ids extraits pour canMutate / buildOwnerFilter TEAM scope)
+ *
+ * Si l utilisateur n existe pas encore en base (premiere connexion avant upsert),
+ * passe au middleware suivant sans bloquer.
  */
 export async function injectAuthUser(
-   req: Request,
-   res: Response,
-   next: NextFunction
- ): Promise<void> {
-   next();
+     req: AuthedRequestWithUser,
+     _res: Response,
+     next: NextFunction,
+   ): Promise<void> {
+     const userId = req.userId;
+     if (!userId) {
+            next();
+            return;
+     }
+
+  try {
+         const user = await prisma.user.findUnique({
+                  where: { id: userId },
+                  select: {
+                             id: true,
+                             authId: true,
+                             role: true,
+                             organizationId: true,
+                             businessUnitId: true,
+                             regionId: true,
+                             sectorId: true,
+                             siteId: true,
+                             managerId: true,
+                             subordinates: {
+                                          select: { id: true },
+                             },
+                  },
+         });
+
+       if (user) {
+                req.authUser = {
+                           id: user.id,
+                           authId: user.authId,
+                           role: (user.role as UserRole) ?? 'SALES_REP',
+                           organizationId: user.organizationId,
+                           businessUnitId: user.businessUnitId,
+                           regionId: user.regionId,
+                           sectorId: user.sectorId,
+                           siteId: user.siteId,
+                           managerId: user.managerId,
+                           subordinateIds: user.subordinates.map((s) => s.id),
+                };
+       }
+  } catch {
+         // Ne pas bloquer la requete si le chargement echoue
+       // La route utilisera req.userId comme fallback
+  }
+
+  next();
 }

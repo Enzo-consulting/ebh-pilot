@@ -316,6 +316,245 @@ model Organization {
   supportPhone        String?
   customDomain        String?  @unique
   language            String   @default("fr")
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  CEO
+  REGIONAL_DIRECTOR
+  SECTOR_DIRECTOR
+  SITE_DIRECTOR
+  SALES_MANAGER
+  SALES_REP
+}
+
+enum Theme {
+  LIGHT
+  DARK
+  AUTO
+}
+
+enum ProspectStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+enum ClientStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+}
+
+enum ImportJobStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+// ============================================================
+// MODULE ENGINE — Ticket 016
+// ============================================================
+
+enum ModuleCategory {
+  SALES
+  OPERATIONS
+  FINANCE
+  HR
+  ANALYTICS
+  AI
+  INTEGRATION
+  COMMUNICATION
+  DOCUMENTS
+  MOBILE
+}
+
+enum FeatureCode {
+  AI_TRANSLATION
+  AI_ANALYSIS
+  AI_IMPORT
+  AI_ASSISTANT
+  PDF_GENERATION
+  EXPORT_EXCEL
+  EXPORT_PDF
+  DOCUMENTS
+  EMAILING
+  SMS
+  WHATSAPP
+  PUSH_NOTIFICATIONS
+  YOUSIGN
+  DOCUSIGN
+  API_ACCESS
+  WEBHOOK
+  REPORTING
+  ADVANCED_ANALYTICS
+  CUSTOM_DASHBOARDS
+  MOBILE_APP
+  GPS_TRACKING
+  QR_SCAN
+  BARCODE_SCAN
+  OFFLINE_MODE
+  CUSTOM_DOMAIN
+  WHITE_LABEL
+  CHALLENGES
+  LEADERBOARD
+  AUDIT_LOG
+  MULTI_ORGANIZATION
+  SSO
+}
+
+// ============================================================
+// AUDIT ENGINE — Ticket 018
+// ============================================================
+
+enum DomainEventType {
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  PROSPECT_CREATED
+  PROSPECT_UPDATED
+  PROSPECT_DELETED
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  IMPORT_STARTED
+  IMPORT_COMPLETED
+  IMPORT_FAILED
+  DOCUMENT_GENERATED
+  DOCUMENT_SIGNED
+  TASK_CREATED
+  TASK_COMPLETED
+  AI_REQUESTED
+  AI_COMPLETED
+  WORKFLOW_STARTED
+  WORKFLOW_FINISHED
+  NOTIFICATION_CREATED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  MODULE_ENABLED
+  FEATURE_ENABLED
+}
+
+// ============================================================
+// TENANT CONFIGURATION ENGINE — Ticket 019
+// ============================================================
+
+/// Categorie d un parametre de configuration organisation.
+enum SettingCategory {
+  GENERAL
+  LOCALE
+  FISCAL
+  NUMBERING
+  DOCUMENT
+  EMAIL
+  NOTIFICATION
+  WORKFLOW
+  AI
+  QUOTA
+  BRANDING
+  SECURITY
+  INTEGRATION
+  MOBILE
+}
+
+/// Type de valeur d un parametre de configuration.
+enum SettingValueType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+  DATE
+  COLOR
+  URL
+  EMAIL
+  PHONE
+}
+
+/// Canal de notification supporte.
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  WHATSAPP
+  TEAMS
+  SLACK
+  DISCORD
+  IN_APP
+  WEBHOOK
+}
+
+/// Fournisseur d integration externe.
+enum IntegrationProvider {
+  OPENAI
+  ANTHROPIC
+  GEMINI
+  MISTRAL
+  AZURE_OPENAI
+  STRIPE
+  PENNYLANE
+  YOUSIGN
+  DOCUSIGN
+  GOOGLE_WORKSPACE
+  MICROSOFT_365
+  ZAPIER
+  WEBHOOK_CUSTOM
+  TWILIO
+  SENDGRID
+  RESEND
+  MAILGUN
+  VONAGE
+  INTERCOM
+  HUBSPOT
+  SALESFORCE
+  PIPEDRIVE
+}
+
+/// Statut d une integration.
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  EXPIRED
+  PENDING_SETUP
+}
+
+// ============================================================
+// ORGANISATION MULTI-TENANT — WHITE LABEL
+// ============================================================
+
+model Organization {
+  id                  String   @id @default(uuid())
+  name                String
+  displayName         String?
+  slug                String   @unique
+  tagline             String?
+  logoUrl             String?
+  logoCompactUrl      String?
+  faviconUrl          String?
+  loginImageUrl       String?
+  primaryColor        String?  @default("#3B82F6")
+  secondaryColor      String?  @default("#1E40AF")
+  accentColor         String?  @default("#F59E0B")
+  defaultTheme        Theme    @default(LIGHT)
+  website             String?
+  supportEmail        String?
+  supportPhone        String?
+  customDomain        String?  @unique
+  language            String   @default("fr")
   timezone            String   @default("Europe/Paris")
   currency            String   @default("EUR")
   dateFormat          String   @default("DD/MM/YYYY")
@@ -329,17 +568,20 @@ model Organization {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  businessUnits BusinessUnit[]
-  regions       Region[]
-  users         User[]
-  modules       OrganizationModule[]
-  features      OrganizationFeature[]
-  auditEvents   AuditEvent[]
+  businessUnits         BusinessUnit[]
+  regions               Region[]
+  users                 User[]
+  modules               OrganizationModule[]
+  features              OrganizationFeature[]
+  auditEvents           AuditEvent[]
+  settings              OrganizationSetting[]
+  workflowTemplates     WorkflowTemplate[]
+  notificationTemplates NotificationTemplate[]
+  integrations          OrganizationIntegration[]
 
   @@index([slug])
   @@index([customDomain])
 }
-
 model BusinessUnit {
   id             String       @id @default(uuid())
   name           String
@@ -430,9 +672,9 @@ model User {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  ownedProspects  Prospect[]  @relation("ProspectOwner")
-  ownedProducts   Product[]   @relation("ProductOwner")
-  ownedImportJobs ImportJob[] @relation("ImportJobOwner")
+  ownedProspects  Prospect[]   @relation("ProspectOwner")
+  ownedProducts   Product[]    @relation("ProductOwner")
+  ownedImportJobs ImportJob[]  @relation("ImportJobOwner")
   auditEvents     AuditEvent[]
 
   @@index([organizationId])
@@ -447,11 +689,11 @@ model User {
 // ============================================================
 
 model Prospect {
-  id           String        @id @default(uuid())
+  id           String         @id @default(uuid())
   name         String
   company      String?
   email        String?
-  value        Decimal       @default(0) @db.Decimal(12, 2)
+  value        Decimal        @default(0) @db.Decimal(12, 2)
   status       ProspectStatus @default(NEW)
   contactName  String?
   phone        String?
@@ -462,35 +704,35 @@ model Prospect {
   city         String?
   country      String?
   vatNumber    String?
-  clientStatus ClientStatus  @default(PROSPECT)
+  clientStatus ClientStatus   @default(PROSPECT)
   notes        String?
   ownerId      String
-  owner        User          @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  owner        User           @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@index([ownerId])
 }
 
 model Product {
-  id                 String   @id @default(uuid())
-  name               String
-  brand              String?
-  supplier           String?
-  supplierReference  String?
-  purchasePrice      Decimal  @default(0) @db.Decimal(12, 2)
-  transportCost      Decimal  @default(0) @db.Decimal(12, 2)
-  preparationCost    Decimal  @default(0) @db.Decimal(12, 2)
-  accessoriesCost    Decimal  @default(0) @db.Decimal(12, 2)
-  otherCosts         Decimal  @default(0) @db.Decimal(12, 2)
-  costPrice          Decimal  @default(0) @db.Decimal(12, 2)
-  sellingPrice       Decimal  @default(0) @db.Decimal(12, 2)
-  marginAmount       Decimal  @default(0) @db.Decimal(12, 2)
-  marginPercent      Decimal  @default(0) @db.Decimal(7, 2)
-  ownerId            String
-  owner              User     @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(uuid())
+  name              String
+  brand             String?
+  supplier          String?
+  supplierReference String?
+  purchasePrice     Decimal  @default(0) @db.Decimal(12, 2)
+  transportCost     Decimal  @default(0) @db.Decimal(12, 2)
+  preparationCost   Decimal  @default(0) @db.Decimal(12, 2)
+  accessoriesCost   Decimal  @default(0) @db.Decimal(12, 2)
+  otherCosts        Decimal  @default(0) @db.Decimal(12, 2)
+  costPrice         Decimal  @default(0) @db.Decimal(12, 2)
+  sellingPrice      Decimal  @default(0) @db.Decimal(12, 2)
+  marginAmount      Decimal  @default(0) @db.Decimal(12, 2)
+  marginPercent     Decimal  @default(0) @db.Decimal(7, 2)
+  ownerId           String
+  owner             User     @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([ownerId])
 }
@@ -506,13 +748,10 @@ model ImportJob {
 
   @@index([ownerId])
 }
-
 // ============================================================
 // MODULE ENGINE — Ticket 016
 // ============================================================
 
-/// Module fonctionnel de la plateforme EBH Pilot.
-/// Exemples : CRM, Produits, Clients, Stocks, RH, Documents, BI, IA
 model Module {
   id          String         @id @default(uuid())
   code        String         @unique
@@ -531,8 +770,6 @@ model Module {
   @@index([category])
 }
 
-/// Fonctionnalite technique activable independamment d un module.
-/// Exemples : AI_TRANSLATION, PDF_GENERATION, MOBILE_APP, YOUSIGN
 model Feature {
   id          String      @id @default(uuid())
   code        FeatureCode @unique
@@ -548,7 +785,6 @@ model Feature {
   @@index([code])
 }
 
-/// Table de liaison : modules actives pour une organisation.
 model OrganizationModule {
   id             String       @id @default(uuid())
   organizationId String
@@ -567,7 +803,6 @@ model OrganizationModule {
   @@index([moduleId])
 }
 
-/// Table de liaison : fonctionnalites actives pour une organisation.
 model OrganizationFeature {
   id             String       @id @default(uuid())
   organizationId String
@@ -591,109 +826,29 @@ model OrganizationFeature {
 // AUDIT ENGINE — Ticket 018
 // ============================================================
 
-/// Journal d audit immuable de toutes les actions importantes.
-///
-/// SECURITE :
-/// - Aucune mise a jour autorisee (pas de updateAuditEvent)
-/// - Aucune suppression autorisee (pas de deleteAuditEvent)
-/// - Seule l insertion est permise via auditService.createAudit()
-///
-/// VOLUME : prevu pour plusieurs millions de lignes.
-/// Utiliser le partitionnement PostgreSQL par occurredAt (range partition par mois).
-///
-/// CONFORMITE : RGPD, ISO 27001, SOC 2, HIPAA-ready.
-///
-/// CHAMPS TECHNIQUES :
-/// - before/after : snapshot de l objet avant et apres modification (diff)
-/// - ipAddress, userAgent, device, browser : contexte de securite
-/// - country, city : geolocalisation pour conformite et detection d anomalies
-/// - isSystemEvent : true si declenche par le systeme (cron, import, IA)
-///                   false si declenche par une action utilisateur directe
 model AuditEvent {
-  /// Identifiant interne de l entree d audit (UUID v4)
   id             String          @id @default(uuid())
-
-  /// Identifiant de l evenement emis par l Event Bus (Ticket 017)
-  /// Permet de correlere une entree d audit avec un evenement specifique.
   eventId        String          @unique
-
-  /// Organisation concernee (isolation multi-tenant — Ticket 014)
   organizationId String
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  /// Business Unit concernee (Ticket 014B) — null si action globale
   businessUnitId String?
-
-  /// Identifiant de l utilisateur qui a declenche l action
-  /// Null uniquement pour les evenements systeme (isSystemEvent = true)
   userId         String?
   user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  /// Type de ressource affectee (ex: "prospect", "client", "product", "user")
   resourceType   String
-
-  /// Identifiant de la ressource affectee
   resourceId     String
-
-  /// Type d evenement de domaine (miroir de DomainEvent — Ticket 017)
   event          DomainEventType
-
-  /// Quand l evenement s est produit (fourni par l Event Bus)
   occurredAt     DateTime
-
-  // ── Contexte de securite ──────────────────────────────────────────────────
-
-  /// Adresse IP du client (IPv4 ou IPv6)
-  /// Null pour les evenements systeme
   ipAddress      String?
-
-  /// User-Agent complet du navigateur ou de l application mobile
   userAgent      String?
-
-  /// Type d appareil detecte (desktop, mobile, tablet, api, system)
   device         String?
-
-  /// Nom du navigateur detecte (Chrome, Firefox, Safari, Edge, mobile-app)
   browser        String?
-
-  /// Pays detecte par geolocalisation IP (code ISO 3166-1 alpha-2, ex: "FR")
   country        String?
-
-  /// Ville detectee par geolocalisation IP
   city           String?
-
-  // ── Donnees de l evenement ────────────────────────────────────────────────
-
-  /// Metadonnees libres transmises par l emetteur de l evenement
-  /// Exemples : { prospectName, source } pour PROSPECT_CREATED
-  ///            { errorCode, rowCount } pour IMPORT_FAILED
   metadata       Json            @default("{}")
-
-  /// Snapshot de l objet AVANT la modification (pour les events UPDATE/DELETE)
-  /// Null pour les evenements de creation ou les evenements sans diff
   before         Json?
-
-  /// Snapshot de l objet APRES la modification (pour les events CREATE/UPDATE)
-  /// Null pour les evenements de suppression ou sans diff
   after          Json?
-
-  // ── Classification ────────────────────────────────────────────────────────
-
-  /// true si l evenement a ete declenche par le systeme (cron, import, IA)
-  /// false si declenche par une action directe d un utilisateur humain
   isSystemEvent  Boolean         @default(false)
-
-  /// Date d insertion dans la base (differ de occurredAt en cas de latence)
   createdAt      DateTime        @default(now())
-
-  // ── Index pour les performances ───────────────────────────────────────────
-  // Optimises pour les requetes les plus frequentes :
-  // 1. Audit par organisation (page d audit admin)
-  // 2. Audit par utilisateur (page de profil, RH)
-  // 3. Audit par ressource (historique d un prospect, client, etc.)
-  // 4. Audit par periode (reporting mensuel, archivage)
-  // 5. Audit par type d evenement (detection d anomalies, alertes)
-  // 6. Correlation avec l Event Bus via eventId
 
   @@index([organizationId])
   @@index([organizationId, occurredAt])
@@ -707,4 +862,367 @@ model AuditEvent {
   @@index([businessUnitId])
   @@index([isSystemEvent])
   @@map("audit_events")
+}
+// ============================================================
+// TENANT CONFIGURATION ENGINE — Ticket 019
+// ============================================================
+
+/// Parametre de configuration specifique a une organisation.
+///
+/// Ce modele est le coeur du Tenant Configuration Engine.
+/// Il stocke toutes les configurations propres a chaque organisation,
+/// organisees par categorie et identifiees par une cle unique.
+///
+/// EXEMPLES DE CLES :
+///   language, timezone, currency, fiscalYear, vatRate
+///   quotationPrefix, invoicePrefix, dateFormat, timeFormat
+///   decimalSeparator, thousandSeparator, maxProspectsPerUser
+///   defaultWorkflow, aiProvider, aiModel, aiTemperature
+///   primaryColor, fontFamily, logoHeight
+///
+/// REGLES :
+/// - Une cle est unique par organisation (contrainte @@unique)
+/// - La valeur est toujours une string serialisee
+/// - Le type est stocke pour la deserialisation cote application
+/// - Les valeurs sensibles (API keys) ne sont jamais stockees ici
+///   — utiliser OrganizationIntegration.encryptedConfig a la place
+model OrganizationSetting {
+  id             String           @id @default(uuid())
+
+  /// Organisation proprietaire de ce parametre
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Cle unique du parametre au sein de l organisation
+  /// Convention: snake_case (ex: "vat_rate", "fiscal_year_start", "ai_model")
+  key            String
+
+  /// Valeur serialisee en string
+  /// Numbers: "19.6", Booleans: "true"/"false", JSON: "{...}", Colors: "#3B82F6"
+  value          String
+
+  /// Type de la valeur pour la deserialisation
+  valueType      SettingValueType @default(STRING)
+
+  /// Categorie pour le regroupement et les permissions
+  category       SettingCategory  @default(GENERAL)
+
+  /// Description lisible par un humain (pour l interface admin)
+  description    String?
+
+  /// Valeur par defaut du systeme (pour le reset)
+  defaultValue   String?
+
+  /// Si true, cette valeur ne peut pas etre modifiee par l admin de l organisation
+  /// (reserve aux super-admins EBH-Pilot)
+  isReadOnly     Boolean          @default(false)
+
+  /// Si true, ce parametre est visible dans l interface admin de l organisation
+  isVisible      Boolean          @default(true)
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@index([organizationId, category])
+  @@map("organization_settings")
+}
+
+/// Template de workflow personnalisable par organisation.
+///
+/// Un workflow definit les etapes par lesquelles passe une entite metier.
+/// Exemples : Prospect, Client, Commande, SAV, Projet, Maintenance, RH
+///
+/// Chaque organisation peut avoir ses propres workflows independamment des autres.
+/// Un secteur peut avoir un workflow "Prospect" different d un autre secteur.
+///
+/// EXEMPLES :
+///   - Automobile : Prospect → Contact → Essai → Offre → Commande → Livraison
+///   - Remorque : Prospect → Devis → Commande → Production → Livraison
+///   - Immobilier : Prospect → Visite → Offre → Compromis → Acte
+///   - Assurance : Prospect → Analyse → Devis → Signature → Suivi
+model WorkflowTemplate {
+  id             String       @id @default(uuid())
+
+  /// Organisation proprietaire de ce workflow
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Nom technique du workflow (ex: "prospect", "client", "order", "sav")
+  code           String
+
+  /// Nom affiche a l utilisateur
+  name           String
+
+  /// Description du workflow
+  description    String?
+
+  /// Type d entite auquel s applique ce workflow
+  /// Exemples : "prospect", "client", "order", "ticket", "project", "employee"
+  entityType     String
+
+  /// Si true, ce workflow est utilise par defaut pour ce type d entite
+  isDefault      Boolean      @default(false)
+
+  /// Si false, ce workflow est archive et n est plus utilise
+  isActive       Boolean      @default(true)
+
+  /// Couleur de la carte workflow dans l interface
+  color          String?      @default("#3B82F6")
+
+  /// Icone du workflow (nom d icone Lucide ou URL)
+  icon           String?
+
+  /// Ordre d affichage dans la liste des workflows
+  displayOrder   Int          @default(0)
+
+  /// Configuration JSON libre pour les extensions futures
+  config         Json?
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  steps WorkflowStep[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, entityType])
+  @@index([organizationId, isDefault])
+  @@map("workflow_templates")
+}
+
+/// Etape d un workflow configurable.
+///
+/// Chaque etape represente un statut ou une phase du workflow.
+/// Les transitions definissent vers quelles etapes on peut avancer ou reculer.
+///
+/// EXEMPLES pour un workflow Prospect :
+///   Step 1: "Nouveau"     → transitions: [2]
+///   Step 2: "Contacte"    → transitions: [3, 5]
+///   Step 3: "Qualifie"    → transitions: [4, 5]
+///   Step 4: "Gagne"       → transitions: []
+///   Step 5: "Perdu"       → transitions: []
+model WorkflowStep {
+  id                 String           @id @default(uuid())
+
+  workflowTemplateId String
+  workflowTemplate   WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+
+  /// Code technique de l etape (ex: "new", "contacted", "won", "lost")
+  code               String
+
+  /// Nom affiche a l utilisateur
+  name               String
+
+  /// Description de cette etape
+  description        String?
+
+  /// Position dans le workflow (0 = premiere etape)
+  order              Int              @default(0)
+
+  /// Couleur de l etape (badge, kanban card)
+  color              String?          @default("#6B7280")
+
+  /// Icone de l etape (nom Lucide ou URL)
+  icon               String?
+
+  /// Si true, c est l etape initiale (entree dans le workflow)
+  isInitial          Boolean          @default(false)
+
+  /// Si true, c est une etape terminale (sortie du workflow)
+  isFinal            Boolean          @default(false)
+
+  /// Si true, cette etape est consideree comme un succes (ex: "Gagne", "Livre")
+  isSuccess          Boolean          @default(false)
+
+  /// Codes des etapes vers lesquelles on peut transitionner depuis cette etape
+  /// Stocke comme tableau JSON: ["contacted", "lost"]
+  transitions        Json             @default("[]")
+
+  /// Conditions requises pour entrer dans cette etape (JSON)
+  /// Exemples: { "requiredFields": ["email", "phone"], "minScore": 50 }
+  entryConditions    Json?
+
+  /// Actions automatiques declenchees lors de l entree dans cette etape (JSON)
+  /// Exemples: { "notify": ["manager"], "createTask": "call_back", "emit": "PROSPECT_UPDATED" }
+  onEnterActions     Json?
+
+  /// Delai SLA avant escalade (en heures). Null = pas de SLA.
+  slaHours           Int?
+
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([workflowTemplateId, code])
+  @@index([workflowTemplateId])
+  @@index([workflowTemplateId, order])
+  @@map("workflow_steps")
+}
+
+/// Template de notification par canal et par evenement.
+///
+/// Permet a chaque organisation de personnaliser les messages envoyes
+/// selon le canal (email, SMS, push, WhatsApp, Teams, Slack, Discord).
+///
+/// VARIABLES SUPPORTEES dans les templates (handlebars-like) :
+///   {{user.name}}, {{organization.name}}, {{resource.name}},
+///   {{event}}, {{date}}, {{url}}, {{branding.primaryColor}}
+///
+/// EXEMPLES :
+///   Canal: EMAIL, Evenement: PROSPECT_CREATED
+///   Sujet: "Nouveau prospect : {{prospect.name}}"
+///   Corps: "Bonjour {{user.name}}, un nouveau prospect a ete cree..."
+model NotificationTemplate {
+  id             String              @id @default(uuid())
+
+  /// Organisation proprietaire de ce template
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Canal de notification
+  channel        NotificationChannel
+
+  /// Evenement de domaine qui declenche ce template
+  /// Correspond aux valeurs de DomainEventType (Ticket 017)
+  eventType      String
+
+  /// Nom affiche dans l interface admin
+  name           String
+
+  /// Sujet du message (pour email, push, Teams)
+  subject        String?
+
+  /// Corps du message (texte ou HTML selon le canal)
+  body           String
+
+  /// Version HTML du corps (pour email uniquement)
+  bodyHtml       String?
+
+  /// Langue de ce template (code ISO 639-1, ex: "fr", "en", "de")
+  locale         String              @default("fr")
+
+  /// Si false, ce template est desactive (les notifications ne sont pas envoyees)
+  isActive       Boolean             @default(true)
+
+  /// Si true, ce template est le template par defaut pour ce canal + evenement + locale
+  isDefault      Boolean             @default(false)
+
+  /// Variables disponibles pour ce template (documentation)
+  availableVars  Json?
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([organizationId, channel, eventType, locale])
+  @@index([organizationId])
+  @@index([organizationId, channel])
+  @@index([organizationId, eventType])
+  @@map("notification_templates")
+}
+
+/// Definition d une integration externe disponible sur la plateforme.
+///
+/// Ce modele decrit ce qu est une integration (comme un catalogue).
+/// L activation par organisation est geree dans OrganizationIntegration.
+///
+/// EXEMPLES :
+///   OpenAI, Anthropic, Stripe, Pennylane, YouSign, Google Workspace
+model Integration {
+  id          String              @id @default(uuid())
+
+  /// Fournisseur de l integration
+  provider    IntegrationProvider @unique
+
+  /// Nom affiche
+  name        String
+
+  /// Description de l integration
+  description String?
+
+  /// Icone (URL ou nom)
+  icon        String?
+
+  /// Site officiel
+  website     String?
+
+  /// Documentation de l integration
+  docsUrl     String?
+
+  /// Champs de configuration requis (JSON schema)
+  /// Exemples: { "apiKey": { "type": "string", "required": true, "secret": true } }
+  configSchema Json?
+
+  /// Version de l API supportee
+  apiVersion  String?
+
+  /// Si false, cette integration n est plus disponible
+  isActive    Boolean             @default(true)
+
+  /// Si true, cette integration est en beta
+  isBeta      Boolean             @default(false)
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  organizations OrganizationIntegration[]
+
+  @@index([provider])
+}
+
+/// Activation et configuration d une integration pour une organisation specifique.
+///
+/// SECURITE — API KEYS :
+/// Les cles API ne sont JAMAIS stockees en clair dans la base de donnees.
+/// Le champ encryptedConfig stocke les valeurs sensibles chiffrees (AES-256-GCM).
+/// La cle de chiffrement est une variable d environnement (ENCRYPTION_KEY).
+///
+/// Le champ config peut stocker des valeurs non-sensibles (endpoint URL, model name, etc.)
+model OrganizationIntegration {
+  id             String            @id @default(uuid())
+
+  /// Organisation qui utilise cette integration
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Integration activee
+  integrationId  String
+  integration    Integration       @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  /// Statut de l integration
+  status         IntegrationStatus @default(PENDING_SETUP)
+
+  /// Configuration non-sensible (endpoint, model, options)
+  config         Json?
+
+  /// Configuration chiffree (API keys, secrets, tokens)
+  /// JAMAIS stocke en clair. Chiffrement AES-256-GCM.
+  encryptedConfig String?
+
+  /// Date d expiration de l integration (pour les tokens OAuth, abonnements)
+  expiresAt      DateTime?
+
+  /// Date de la derniere utilisation reussie
+  lastUsedAt     DateTime?
+
+  /// Date de la derniere erreur
+  lastErrorAt    DateTime?
+
+  /// Message de la derniere erreur
+  lastErrorMsg   String?
+
+  /// Nombre d appels ce mois-ci (pour les quotas)
+  monthlyCallCount Int             @default(0)
+
+  /// Quota mensuel maximum d appels (null = illimite)
+  monthlyQuota   Int?
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([organizationId, integrationId])
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([status])
+  @@map("organization_integrations")
 }

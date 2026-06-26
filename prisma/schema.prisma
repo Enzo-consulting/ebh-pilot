@@ -51,6 +51,7 @@ enum ImportJobStatus {
 
 /// Entreprise cliente (tenant SaaS).
 /// Chaque organisation est completement isolee.
+/// Une organisation peut posseder une ou plusieurs BusinessUnit.
 model Organization {
   id             String   @id @default(uuid())
   name           String
@@ -62,24 +63,52 @@ model Organization {
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  businessUnits  BusinessUnit[]
   regions        Region[]
   users          User[]
 
   @@index([slug])
 }
 
-/// Region geographique appartenant a une organisation.
-model Region {
+/// Division, marque, enseigne ou filiale appartenant a une organisation.
+/// Niveau intermediaire entre l Organisation et les Regions.
+/// Generique : peut representer une marque (Renault/Dacia), une enseigne,
+/// une division metier (Tourisme/Poids Lourds), une activite (Cycle/Running), etc.
+/// Une organisation mono-activite n aura qu une seule BusinessUnit.
+model BusinessUnit {
   id             String       @id @default(uuid())
   name           String
+  /// Code court optionnel pour l identification (ex: "BU_TOURISME", "DACIA")
+  code           String?
+  description    String?
+  isActive       Boolean      @default(true)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  regions        Region[]
+  users          User[]
+
+  @@index([organizationId])
+}
+
+/// Region geographique appartenant a une organisation,
+/// et optionnellement rattachee a une BusinessUnit.
+model Region {
+  id             String        @id @default(uuid())
+  name           String
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Rattachement a une BusinessUnit (optionnel pour compatibilite ascendante)
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   sectors        Sector[]
   users          User[]
 
   @@index([organizationId])
+  @@index([businessUnitId])
 }
 
 /// Secteur commercial appartenant a une region.
@@ -130,6 +159,10 @@ model User {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
+  /// BusinessUnit (optionnel — null si l organisation est mono-activite ou si non rattache)
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+
   /// Rattachement geographique selon le role
   regionId String?
   region   Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
@@ -149,11 +182,12 @@ model User {
   updatedAt DateTime @updatedAt
 
   /// Donnees metier dont cet utilisateur est proprietaire
-  ownedProspects Prospect[]  @relation("ProspectOwner")
-  ownedProducts  Product[]   @relation("ProductOwner")
+  ownedProspects  Prospect[]  @relation("ProspectOwner")
+  ownedProducts   Product[]   @relation("ProductOwner")
   ownedImportJobs ImportJob[] @relation("ImportJobOwner")
 
   @@index([organizationId])
+  @@index([businessUnitId])
   @@index([managerId])
   @@index([role])
   @@index([siteId])

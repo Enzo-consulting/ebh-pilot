@@ -21,6 +21,13 @@ enum UserRole {
   SALES_REP
 }
 
+/// Theme par defaut de l interface pour cette organisation.
+enum Theme {
+  LIGHT
+  DARK
+  AUTO
+}
+
 enum ProspectStatus {
   NEW
   CONTACTED
@@ -43,37 +50,100 @@ enum ImportJobStatus {
 }
 
 // ============================================================
-// ORGANISATION MULTI-TENANT
+// ORGANISATION MULTI-TENANT — WHITE LABEL
 // ============================================================
 
-/// Entreprise cliente (tenant SaaS). Chaque organisation est completement isolee.
-/// Une organisation peut posseder une ou plusieurs BusinessUnit.
+/// Entreprise cliente (tenant SaaS) et coeur du moteur White Label.
+/// Chaque organisation est completement isolee.
+/// Les champs White Label permettent a chaque client de personnaliser
+/// son identite visuelle, son domaine, et ses parametres regionaux.
 model Organization {
-  id             String         @id @default(uuid())
-  name           String
-  slug           String         @unique
+  id   String @id @default(uuid())
+
+  // --- Identite ---
+  /// Nom interne (utilise par l equipe EBH pour identifier le client)
+  name        String
+  /// Nom affiche dans l interface (peut etre different du nom interne)
+  displayName String?
+  /// Slug unique pour les URLs et l identification du tenant
+  slug        String  @unique
+  /// Slogan ou baseline de l entreprise
+  tagline     String?
+
+  // --- Branding visuel ---
+  /// URL du logo principal (format rectangle, fond transparent recommande)
   logoUrl        String?
-  primaryColor   String?        @default("#3B82F6")
-  secondaryColor String?        @default("#1E40AF")
-  website        String?
-  isActive       Boolean        @default(true)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  businessUnits  BusinessUnit[]
-  regions        Region[]
-  users          User[]
+  /// URL du logo compact (carre ou icone, pour sidebar collapsed, favicon fallback)
+  logoCompactUrl String?
+  /// URL du favicon (format .ico ou .png 32x32)
+  faviconUrl     String?
+  /// URL de l image affichee sur la page de connexion
+  loginImageUrl  String?
+  /// Couleur principale (hex, ex: "#3B82F6")
+  primaryColor   String? @default("#3B82F6")
+  /// Couleur secondaire (hex, ex: "#1E40AF")
+  secondaryColor String? @default("#1E40AF")
+  /// Couleur d accent (hex, ex: "#F59E0B")
+  accentColor    String? @default("#F59E0B")
+  /// Theme par defaut de l interface
+  defaultTheme   Theme   @default(LIGHT)
+
+  // --- Contact et support ---
+  /// Site web de l entreprise cliente
+  website      String?
+  /// Email de support affiche dans l application
+  supportEmail String?
+  /// Telephone de support affiche dans l application
+  supportPhone String?
+
+  // --- Domaine personnalise ---
+  /// Domaine personnalise du client (ex: crm.monentreprise.fr)
+  /// null = utilisation du domaine EBH par defaut
+  customDomain String? @unique
+
+  // --- Parametres regionaux ---
+  /// Code langue ISO 639-1 (ex: "fr", "en", "es")
+  language   String @default("fr")
+  /// Fuseau horaire IANA (ex: "Europe/Paris", "America/New_York")
+  timezone   String @default("Europe/Paris")
+  /// Code devise ISO 4217 (ex: "EUR", "USD", "GBP")
+  currency   String @default("EUR")
+  /// Format de date (ex: "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD")
+  dateFormat String @default("DD/MM/YYYY")
+  /// Separateur decimal (ex: "," pour fr, "." pour en)
+  numberFormat String @default(",")
+
+  // --- Contenu legal et navigation ---
+  /// URL de la politique de confidentialite
+  privacyPolicyUrl String?
+  /// URL des CGU
+  termsUrl         String?
+  /// URL du footer (lien vers le site institutionnel)
+  footerLink       String?
+  /// Texte du footer (ex: "Propulse par EBH Pilot" ou nom de marque)
+  footerText       String?
+
+  // --- Controle White Label ---
+  /// Active les fonctionnalites White Label (domaine, logo, couleurs)
+  isWhiteLabelEnabled Boolean @default(false)
+  /// Active ou desactive l organisation entiere
+  isActive            Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  businessUnits BusinessUnit[]
+  regions       Region[]
+  users         User[]
 
   @@index([slug])
+  @@index([customDomain])
 }
 
 /// Division, marque, enseigne ou filiale appartenant a une organisation.
-/// Niveau intermediaire generique entre Organisation et Region.
-/// Exemples : marque (Renault/Dacia), division (Tourisme/PL), activite (Cycle/Running).
-/// Une organisation mono-activite possede une seule BusinessUnit.
 model BusinessUnit {
   id             String       @id @default(uuid())
   name           String
-  /// Code court optionnel (ex: "BU_TOURISME", "DACIA", "RUNNING")
   code           String?
   description    String?
   isActive       Boolean      @default(true)
@@ -87,14 +157,12 @@ model BusinessUnit {
   @@index([organizationId])
 }
 
-/// Region geographique appartenant a une organisation,
-/// optionnellement rattachee a une BusinessUnit.
+/// Region geographique appartenant a une organisation.
 model Region {
   id             String        @id @default(uuid())
   name           String
   organizationId String
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  /// Rattachement a une BusinessUnit (optionnel — null si organisation mono-activite)
   businessUnitId String?
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
@@ -139,8 +207,6 @@ model Site {
 // UTILISATEURS ET HIERARCHIE
 // ============================================================
 
-/// Utilisateur de la plateforme, rattache a une organisation.
-/// Supporte la hierarchie manager/subordonnes et les roles metier.
 model User {
   id       String   @id @default(uuid())
   email    String   @unique
@@ -152,7 +218,6 @@ model User {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  /// BusinessUnit (null si organisation mono-activite ou si non rattache)
   businessUnitId String?
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
 
@@ -214,29 +279,28 @@ model Prospect {
 }
 
 model Product {
-  id                String  @id @default(uuid())
+  id                String   @id @default(uuid())
   name              String
   brand             String?
   supplier          String?
   supplierReference String?
-  purchasePrice     Decimal @default(0) @db.Decimal(12, 2)
-  transportCost     Decimal @default(0) @db.Decimal(12, 2)
-  preparationCost   Decimal @default(0) @db.Decimal(12, 2)
-  accessoriesCost   Decimal @default(0) @db.Decimal(12, 2)
-  otherCosts        Decimal @default(0) @db.Decimal(12, 2)
-  costPrice         Decimal @default(0) @db.Decimal(12, 2)
-  sellingPrice      Decimal @default(0) @db.Decimal(12, 2)
-  marginAmount      Decimal @default(0) @db.Decimal(12, 2)
-  marginPercent     Decimal @default(0) @db.Decimal(7, 2)
+  purchasePrice     Decimal  @default(0) @db.Decimal(12, 2)
+  transportCost     Decimal  @default(0) @db.Decimal(12, 2)
+  preparationCost   Decimal  @default(0) @db.Decimal(12, 2)
+  accessoriesCost   Decimal  @default(0) @db.Decimal(12, 2)
+  otherCosts        Decimal  @default(0) @db.Decimal(12, 2)
+  costPrice         Decimal  @default(0) @db.Decimal(12, 2)
+  sellingPrice      Decimal  @default(0) @db.Decimal(12, 2)
+  marginAmount      Decimal  @default(0) @db.Decimal(12, 2)
+  marginPercent     Decimal  @default(0) @db.Decimal(7, 2)
   ownerId           String
-  owner             User    @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner             User     @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([ownerId])
 }
 
-/// Suivi des imports fournisseurs IA (Ticket 009.2)
 model ImportJob {
   id        String          @id @default(uuid())
   url       String

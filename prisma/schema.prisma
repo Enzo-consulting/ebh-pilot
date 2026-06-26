@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -50,97 +50,104 @@ enum ImportJobStatus {
 }
 
 // ============================================================
+// MODULE ENGINE — Ticket 016
+// ============================================================
+
+/// Categorie fonctionnelle d un module.
+enum ModuleCategory {
+  SALES
+  OPERATIONS
+  FINANCE
+  HR
+  ANALYTICS
+  AI
+  INTEGRATION
+  COMMUNICATION
+  DOCUMENTS
+  MOBILE
+}
+
+/// Code unique d une fonctionnalite activable par organisation.
+enum FeatureCode {
+  AI_TRANSLATION
+  AI_ANALYSIS
+  AI_IMPORT
+  AI_ASSISTANT
+  PDF_GENERATION
+  EXPORT_EXCEL
+  EXPORT_PDF
+  DOCUMENTS
+  EMAILING
+  SMS
+  WHATSAPP
+  PUSH_NOTIFICATIONS
+  YOUSIGN
+  DOCUSIGN
+  API_ACCESS
+  WEBHOOK
+  REPORTING
+  ADVANCED_ANALYTICS
+  CUSTOM_DASHBOARDS
+  MOBILE_APP
+  GPS_TRACKING
+  QR_SCAN
+  BARCODE_SCAN
+  OFFLINE_MODE
+  CUSTOM_DOMAIN
+  WHITE_LABEL
+  CHALLENGES
+  LEADERBOARD
+  AUDIT_LOG
+  MULTI_ORGANIZATION
+  SSO
+}
+
+// ============================================================
 // ORGANISATION MULTI-TENANT — WHITE LABEL
 // ============================================================
 
-/// Entreprise cliente (tenant SaaS) et coeur du moteur White Label.
-/// Chaque organisation est completement isolee.
-/// Les champs White Label permettent a chaque client de personnaliser
-/// son identite visuelle, son domaine, et ses parametres regionaux.
 model Organization {
-  id   String @id @default(uuid())
-
-  // --- Identite ---
-  /// Nom interne (utilise par l equipe EBH pour identifier le client)
-  name        String
-  /// Nom affiche dans l interface (peut etre different du nom interne)
-  displayName String?
-  /// Slug unique pour les URLs et l identification du tenant
-  slug        String  @unique
-  /// Slogan ou baseline de l entreprise
-  tagline     String?
-
-  // --- Branding visuel ---
-  /// URL du logo principal (format rectangle, fond transparent recommande)
-  logoUrl        String?
-  /// URL du logo compact (carre ou icone, pour sidebar collapsed, favicon fallback)
-  logoCompactUrl String?
-  /// URL du favicon (format .ico ou .png 32x32)
-  faviconUrl     String?
-  /// URL de l image affichee sur la page de connexion
-  loginImageUrl  String?
-  /// Couleur principale (hex, ex: "#3B82F6")
-  primaryColor   String? @default("#3B82F6")
-  /// Couleur secondaire (hex, ex: "#1E40AF")
-  secondaryColor String? @default("#1E40AF")
-  /// Couleur d accent (hex, ex: "#F59E0B")
-  accentColor    String? @default("#F59E0B")
-  /// Theme par defaut de l interface
-  defaultTheme   Theme   @default(LIGHT)
-
-  // --- Contact et support ---
-  /// Site web de l entreprise cliente
-  website      String?
-  /// Email de support affiche dans l application
-  supportEmail String?
-  /// Telephone de support affiche dans l application
-  supportPhone String?
-
-  // --- Domaine personnalise ---
-  /// Domaine personnalise du client (ex: crm.monentreprise.fr)
-  /// null = utilisation du domaine EBH par defaut
-  customDomain String? @unique
-
-  // --- Parametres regionaux ---
-  /// Code langue ISO 639-1 (ex: "fr", "en", "es")
-  language   String @default("fr")
-  /// Fuseau horaire IANA (ex: "Europe/Paris", "America/New_York")
-  timezone   String @default("Europe/Paris")
-  /// Code devise ISO 4217 (ex: "EUR", "USD", "GBP")
-  currency   String @default("EUR")
-  /// Format de date (ex: "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD")
-  dateFormat String @default("DD/MM/YYYY")
-  /// Separateur decimal (ex: "," pour fr, "." pour en)
-  numberFormat String @default(",")
-
-  // --- Contenu legal et navigation ---
-  /// URL de la politique de confidentialite
+  id               String  @id @default(uuid())
+  name             String
+  displayName      String?
+  slug             String  @unique
+  tagline          String?
+  logoUrl          String?
+  logoCompactUrl   String?
+  faviconUrl       String?
+  loginImageUrl    String?
+  primaryColor     String? @default("#3B82F6")
+  secondaryColor   String? @default("#1E40AF")
+  accentColor      String? @default("#F59E0B")
+  defaultTheme     Theme   @default(LIGHT)
+  website          String?
+  supportEmail     String?
+  supportPhone     String?
+  customDomain     String? @unique
+  language         String  @default("fr")
+  timezone         String  @default("Europe/Paris")
+  currency         String  @default("EUR")
+  dateFormat       String  @default("DD/MM/YYYY")
+  numberFormat     String  @default(",")
   privacyPolicyUrl String?
-  /// URL des CGU
   termsUrl         String?
-  /// URL du footer (lien vers le site institutionnel)
   footerLink       String?
-  /// Texte du footer (ex: "Propulse par EBH Pilot" ou nom de marque)
   footerText       String?
-
-  // --- Controle White Label ---
-  /// Active les fonctionnalites White Label (domaine, logo, couleurs)
   isWhiteLabelEnabled Boolean @default(false)
-  /// Active ou desactive l organisation entiere
-  isActive            Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive         Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   businessUnits BusinessUnit[]
   regions       Region[]
   users         User[]
+  modules       OrganizationModule[]
+  features      OrganizationFeature[]
 
   @@index([slug])
   @@index([customDomain])
 }
 
-/// Division, marque, enseigne ou filiale appartenant a une organisation.
 model BusinessUnit {
   id             String       @id @default(uuid())
   name           String
@@ -157,7 +164,6 @@ model BusinessUnit {
   @@index([organizationId])
 }
 
-/// Region geographique appartenant a une organisation.
 model Region {
   id             String        @id @default(uuid())
   name           String
@@ -174,7 +180,6 @@ model Region {
   @@index([businessUnitId])
 }
 
-/// Secteur commercial appartenant a une region.
 model Sector {
   id        String   @id @default(uuid())
   name      String
@@ -188,7 +193,6 @@ model Sector {
   @@index([regionId])
 }
 
-/// Site physique ou point de vente appartenant a un secteur.
 model Site {
   id        String   @id @default(uuid())
   name      String
@@ -208,38 +212,30 @@ model Site {
 // ============================================================
 
 model User {
-  id       String   @id @default(uuid())
-  email    String   @unique
-  name     String?
-  authId   String?  @unique
-  role     UserRole @default(SALES_REP)
-  isActive Boolean  @default(true)
-
+  id             String        @id @default(uuid())
+  email          String        @unique
+  name           String?
+  authId         String?       @unique
+  role           UserRole      @default(SALES_REP)
+  isActive       Boolean       @default(true)
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-
   businessUnitId String?
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
-
-  regionId String?
-  region   Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
-
-  sectorId String?
-  sector   Sector? @relation(fields: [sectorId], references: [id], onDelete: SetNull)
-
-  siteId String?
-  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
-
-  managerId    String?
-  manager      User?  @relation("UserHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
-  subordinates User[] @relation("UserHierarchy")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  ownedProspects  Prospect[]  @relation("ProspectOwner")
-  ownedProducts   Product[]   @relation("ProductOwner")
-  ownedImportJobs ImportJob[] @relation("ImportJobOwner")
+  regionId       String?
+  region         Region?       @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  sectorId       String?
+  sector         Sector?       @relation(fields: [sectorId], references: [id], onDelete: SetNull)
+  siteId         String?
+  site           Site?         @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  managerId      String?
+  manager        User?         @relation("UserHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates   User[]        @relation("UserHierarchy")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  ownedProspects  Prospect[]   @relation("ProspectOwner")
+  ownedProducts   Product[]    @relation("ProductOwner")
+  ownedImportJobs ImportJob[]  @relation("ImportJobOwner")
 
   @@index([organizationId])
   @@index([businessUnitId])
@@ -253,50 +249,50 @@ model User {
 // ============================================================
 
 model Prospect {
-  id           String         @id @default(uuid())
-  name         String
-  company      String?
-  email        String?
-  value        Decimal        @default(0) @db.Decimal(12, 2)
-  status       ProspectStatus @default(NEW)
-  contactName  String?
-  phone        String?
-  mobile       String?
-  website      String?
-  address      String?
-  postalCode   String?
-  city         String?
-  country      String?
-  vatNumber    String?
-  clientStatus ClientStatus   @default(PROSPECT)
-  notes        String?
-  ownerId      String
-  owner        User           @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id          String         @id @default(uuid())
+  name        String
+  company     String?
+  email       String?
+  value       Decimal        @default(0) @db.Decimal(12, 2)
+  status      ProspectStatus @default(NEW)
+  contactName String?
+  phone       String?
+  mobile      String?
+  website     String?
+  address     String?
+  postalCode  String?
+  city        String?
+  country     String?
+  vatNumber   String?
+  clientStatus ClientStatus  @default(PROSPECT)
+  notes       String?
+  ownerId     String
+  owner       User           @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@index([ownerId])
 }
 
 model Product {
-  id                String   @id @default(uuid())
-  name              String
-  brand             String?
-  supplier          String?
-  supplierReference String?
-  purchasePrice     Decimal  @default(0) @db.Decimal(12, 2)
-  transportCost     Decimal  @default(0) @db.Decimal(12, 2)
-  preparationCost   Decimal  @default(0) @db.Decimal(12, 2)
-  accessoriesCost   Decimal  @default(0) @db.Decimal(12, 2)
-  otherCosts        Decimal  @default(0) @db.Decimal(12, 2)
-  costPrice         Decimal  @default(0) @db.Decimal(12, 2)
-  sellingPrice      Decimal  @default(0) @db.Decimal(12, 2)
-  marginAmount      Decimal  @default(0) @db.Decimal(12, 2)
-  marginPercent     Decimal  @default(0) @db.Decimal(7, 2)
-  ownerId           String
-  owner             User     @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  name               String
+  brand              String?
+  supplier           String?
+  supplierReference  String?
+  purchasePrice      Decimal  @default(0) @db.Decimal(12, 2)
+  transportCost      Decimal  @default(0) @db.Decimal(12, 2)
+  preparationCost    Decimal  @default(0) @db.Decimal(12, 2)
+  accessoriesCost    Decimal  @default(0) @db.Decimal(12, 2)
+  otherCosts         Decimal  @default(0) @db.Decimal(12, 2)
+  costPrice          Decimal  @default(0) @db.Decimal(12, 2)
+  sellingPrice       Decimal  @default(0) @db.Decimal(12, 2)
+  marginAmount       Decimal  @default(0) @db.Decimal(12, 2)
+  marginPercent      Decimal  @default(0) @db.Decimal(7, 2)
+  ownerId            String
+  owner              User     @relation("ProductOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([ownerId])
 }
@@ -311,4 +307,82 @@ model ImportJob {
   updatedAt DateTime        @updatedAt
 
   @@index([ownerId])
+}
+
+// ============================================================
+// MODULE ENGINE — Ticket 016
+// ============================================================
+
+/// Module fonctionnel de la plateforme EBH Pilot.
+/// Exemples : CRM, Produits, Clients, Stocks, RH, Documents, BI, IA
+model Module {
+  id          String         @id @default(uuid())
+  code        String         @unique
+  name        String
+  description String?
+  category    ModuleCategory
+  icon        String?
+  isCore      Boolean        @default(false)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  organizations OrganizationModule[]
+
+  @@index([code])
+  @@index([category])
+}
+
+/// Fonctionnalite technique activable independamment d un module.
+/// Exemples : AI_TRANSLATION, PDF_GENERATION, MOBILE_APP, YOUSIGN
+model Feature {
+  id          String      @id @default(uuid())
+  code        FeatureCode @unique
+  name        String
+  description String?
+  isActive    Boolean     @default(true)
+  isBeta      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  organizations OrganizationFeature[]
+
+  @@index([code])
+}
+
+/// Table de liaison : modules actives pour une organisation.
+model OrganizationModule {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  moduleId       String
+  module         Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  isEnabled      Boolean      @default(true)
+  enabledAt      DateTime     @default(now())
+  expiresAt      DateTime?
+  config         Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, moduleId])
+  @@index([organizationId])
+  @@index([moduleId])
+}
+
+/// Table de liaison : fonctionnalites actives pour une organisation.
+model OrganizationFeature {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  featureId      String
+  feature        Feature      @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  isEnabled      Boolean      @default(true)
+  enabledAt      DateTime     @default(now())
+  expiresAt      DateTime?
+  quota          Int?
+  usageCount     Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, featureId])
+  @@index([organizationId])
+  @@index([featureId])
 }

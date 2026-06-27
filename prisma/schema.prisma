@@ -403,6 +403,8 @@ model Organization {
   userReputationScores  UserReputationScore[]
   userReputationIndexes UserReputationIndex[]
   userExperiences       UserExperience[]
+  dashboardPreferences  DashboardPreference[]
+  widgetConfigs         WidgetConfig[]
   levelDefinitions      LevelDefinition[]
   userLevelHistory      UserLevelHistory[]
   xpTransactions        XpTransaction[]
@@ -525,6 +527,7 @@ model User {
   reputationScores     UserReputationScore[]
   reputationIndex      UserReputationIndex?
   userExperience       UserExperience?
+  dashboardPreference  DashboardPreference?
   xpTransactions       XpTransaction[]
   levelHistory         UserLevelHistory[]
 
@@ -1300,6 +1303,39 @@ enum XpSourceEvent {
   CUSTOM
 }
 
+// ============================================================
+// ENUMS — Dashboard Engine (Ticket 021D)
+// ============================================================
+
+enum WidgetType {
+  TODAY_SCORE
+  CURRENT_STREAK
+  TODAY_RANKING
+  CURRENT_LEVEL
+  PROGRESS_BAR
+  TOP_BADGE
+  CURRENT_CHALLENGE
+  OBJECTIVES
+  NOTIFICATIONS_SUMMARY
+  AGENDA_SUMMARY
+  RECENT_DOCUMENTS
+  RECENT_ACTIVITY
+  LEADERBOARD_PREVIEW
+  XP_CARD
+  QUICK_ACTIONS
+  AI_COACH
+  REPUTATION_SCORE
+}
+
+enum DashboardType {
+  EXECUTIVE
+  MANAGER
+  SALES_REP
+  MOBILE
+  CUSTOM
+}
+
+
 
 // ============================================================
 // LEAGUE ENGINE
@@ -1438,6 +1474,20 @@ model UserPublicProfile {
   highlightedBadges Json                 @default("[]")
   visibility       ProfileVisibilityLevel @default(ORGANIZATION)
   isVisible        Boolean               @default(true)
+  displayName      String?
+  coverImageUrl    String?
+  currentRank      Int?
+  reputationScore  Decimal?              @db.Decimal(7, 2)
+  totalSales       Int                   @default(0)
+  totalClients     Int                   @default(0)
+  totalProspects   Int                   @default(0)
+  badgesVisible    Boolean               @default(true)
+  achievementsVisible Boolean            @default(true)
+  statisticsVisible   Boolean            @default(true)
+  profileViews     Int                   @default(0)
+  lastProfileView  DateTime?
+  isPublicInsideOrganization Boolean     @default(true)
+  lifetimeXp       Int                   @default(0)
   level            Int                   @default(1)
   totalXp          Int                   @default(0)
   metadata         Json                  @default("{}")
@@ -1961,4 +2011,52 @@ model XpTransaction {
   @@index([organizationId, sourceEvent])
   @@index([seasonId])
   @@map("xp_transactions")
+}
+
+// ============================================================
+// DASHBOARD ENGINE (Ticket 021D)
+// ============================================================
+
+/// Préférences de dashboard d'un utilisateur (layout, widgets actifs)
+model DashboardPreference {
+  id             String        @id @default(uuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String        @unique
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dashboardType  DashboardType @default(SALES_REP)
+  /// Ordre et visibilité des widgets [{ widgetType, position, isVisible }]
+  widgetLayout   Json          @default("[]")
+  /// Personnalisation de la branding pour ce profil (override org)
+  brandingOverride Json        @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@map("dashboard_preferences")
+}
+
+/// Configuration d'un widget par organisation (couleurs, seuils, labels)
+model WidgetConfig {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  widgetType     WidgetType
+  /// Libellé personnalisé (ex. "Mon score du jour" vs "Today's score")
+  label          String?
+  /// Icône personnalisée
+  icon           String?
+  /// Couleur de la carte widget (hex)
+  color          String?      @default("#6366F1")
+  /// Configuration spécifique au widget (seuils, nombre d'entrées, etc.)
+  config         Json         @default("{}")
+  isEnabled      Boolean      @default(true)
+  displayOrder   Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, widgetType])
+  @@index([organizationId])
+  @@index([organizationId, isEnabled])
+  @@map("widget_configs")
 }

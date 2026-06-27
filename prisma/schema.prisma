@@ -130,6 +130,18 @@ enum DomainEventType {
   LOGIN_FAILED
   MODULE_ENABLED
   FEATURE_ENABLED
+  // ── Performance & Progression (Ticket 020 / 021C) ───────────────────────
+  KPI_RECORDED = 'KPI_RECORDED',
+  BADGE_EARNED = 'BADGE_EARNED',
+  CHALLENGE_COMPLETED = 'CHALLENGE_COMPLETED',
+  GOAL_REACHED = 'GOAL_REACHED',
+  SEASON_STARTED = 'SEASON_STARTED',
+  SEASON_ENDED = 'SEASON_ENDED',
+  // ── Progression Engine (Ticket 021C) ─────────────────────────────────────
+  XP_GAINED = 'XP_GAINED',
+  XP_REMOVED = 'XP_REMOVED',
+  USER_LEVEL_UP = 'USER_LEVEL_UP',
+  USER_NEW_TITLE = 'USER_NEW_TITLE',
 }
 
 // ============================================================
@@ -390,6 +402,10 @@ model Organization {
   reputationCriteria    ReputationCriterion[]
   userReputationScores  UserReputationScore[]
   userReputationIndexes UserReputationIndex[]
+  userExperiences       UserExperience[]
+  levelDefinitions      LevelDefinition[]
+  userLevelHistory      UserLevelHistory[]
+  xpTransactions        XpTransaction[]
 
 
   @@index([slug])
@@ -508,6 +524,9 @@ model User {
   progressionEvents    ProgressionEvent[]
   reputationScores     UserReputationScore[]
   reputationIndex      UserReputationIndex?
+  userExperience       UserExperience?
+  xpTransactions       XpTransaction[]
+  levelHistory         UserLevelHistory[]
 
 
   @@index([organizationId])
@@ -1112,6 +1131,7 @@ model Season {
   userRecords   UserRecord[]
   userStatSnapshots UserStatSnapshot[]
   userRewards   UserReward[]
+  xpTransactions XpTransaction[]
 
 
   @@index([organizationId])
@@ -1257,6 +1277,29 @@ enum ProfileVisibilityLevel {
   TEAM
   PRIVATE
 }
+
+// ============================================================
+// ENUMS — Progression Engine (Ticket 021C)
+// ============================================================
+
+/// Source d'un gain ou perte de XP
+enum XpSourceEvent {
+  PROSPECT_CREATED
+  CLIENT_CREATED
+  SALE_COMPLETED
+  GOAL_REACHED
+  CHALLENGE_COMPLETED
+  BADGE_EARNED
+  DAILY_LOGIN
+  STREAK_BONUS
+  LEVEL_BONUS
+  SEASON_BONUS
+  MANUAL_GRANT
+  MANUAL_DEDUCT
+  CORRECTION
+  CUSTOM
+}
+
 
 // ============================================================
 // LEAGUE ENGINE
@@ -1798,4 +1841,124 @@ model UserReputationIndex {
   @@index([organizationId])
   @@index([organizationId, globalScore])
   @@map("user_reputation_indexes")
+}
+
+// ============================================================
+// PROGRESSION ENGINE (Ticket 021C)
+// ============================================================
+
+/// Expérience et niveau courant d'un utilisateur (un enregistrement par user)
+model UserExperience {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId          String       @unique
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// XP cumulé dans la saison / période courante
+  totalXp         Int          @default(0)
+  /// Niveau actuel calculé (1-based)
+  currentLevel    Int          @default(1)
+  /// XP acquis depuis le début du niveau courant
+  currentLevelXp  Int          @default(0)
+  /// XP requis pour atteindre le niveau suivant (snapshot pour perf)
+  nextLevelXp     Int          @default(100)
+  /// XP cumulé sur toute la vie du compte (jamais réinitialisé)
+  lifetimeXp      Int          @default(0)
+  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime     @default(now())
+
+  xpTransactions   XpTransaction[]
+  levelHistory     UserLevelHistory[]
+
+  @@index([organizationId])
+  @@index([organizationId, totalXp])
+  @@index([organizationId, currentLevel])
+  @@map("user_experiences")
+}
+
+/// Définition d'un niveau (personnalisable par organisation, sinon système)
+model LevelDefinition {
+  id             String        @id @default(uuid())
+  /// Null = niveau système (partagé par toutes les orgs sans personnalisation)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Numéro de niveau (1, 2, 3, ...)
+  level          Int
+  /// Libellé affiché (ex. "Recrue", "Expert", "Légende")
+  title          String
+  /// XP minimum pour atteindre ce niveau
+  minXp          Int
+  /// Icône (emoji, nom d'icône ou URL)
+  icon           String?
+  /// Couleur HEX
+  color          String?       @default("#6366F1")
+  /// Récompenses JSON déclenchées à l'atteinte du niveau
+  rewardJson     Json          @default("{}")
+  /// True si ce niveau fait partie du référentiel système par défaut
+  isDefault      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organizationId, level])
+  @@index([organizationId])
+  @@index([organizationId, minXp])
+  @@index([isDefault])
+  @@map("level_definitions")
+}
+
+/// Historique des montées de niveau (jamais supprimé)
+model UserLevelHistory {
+  id               String          @id @default(uuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userExperienceId String
+  userExperience   UserExperience  @relation(fields: [userExperienceId], references: [id], onDelete: Cascade)
+  oldLevel         Int
+  newLevel         Int
+  xpAtPromotion    Int
+  promotedAt       DateTime        @default(now())
+  metadata         Json            @default("{}")
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, promotedAt])
+  @@index([organizationId, newLevel])
+  @@map("user_level_history")
+}
+
+/// Historique complet de tous les gains et pertes de XP
+model XpTransaction {
+  id               String          @id @default(uuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userExperienceId String
+  userExperience   UserExperience  @relation(fields: [userExperienceId], references: [id], onDelete: Cascade)
+  /// Type d'événement source du gain/perte
+  sourceEvent      XpSourceEvent
+  /// Type de ressource ayant déclenché le gain (ex. "Badge", "Goal", "Challenge")
+  sourceResource   String?
+  /// ID de la ressource source (pour audit)
+  sourceResourceId String?
+  /// Montant de XP (positif = gain, négatif = retrait)
+  xp               Int
+  /// XP total de l'utilisateur après cette transaction
+  balanceAfter     Int
+  /// Motif lisible par un humain
+  reason           String?
+  /// Données contextuelles libres
+  metadata         Json            @default("{}")
+  seasonId         String?
+  season           Season?         @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, createdAt])
+  @@index([organizationId, sourceEvent])
+  @@index([seasonId])
+  @@map("xp_transactions")
 }

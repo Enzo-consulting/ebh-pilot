@@ -370,6 +370,27 @@ model Organization {
   challenges            Challenge[]
   goals                 Goal[]
   seasons               Season[]
+  leagueDefinitions     LeagueDefinition[]
+  userLeagues           UserLeague[]
+  userLeaguePeaks       UserLeaguePeak[]
+  hallOfFameEntries     HallOfFameEntry[]
+  publicProfiles        UserPublicProfile[]
+  profileFieldVisibilities ProfileFieldVisibility[]
+  profileVisits         ProfileVisit[]
+  profileVisitConfig    ProfileVisitConfig?
+  recordDefinitions     RecordDefinition[]
+  userRecords           UserRecord[]
+  userStatSnapshots     UserStatSnapshot[]
+  rewardDefinitions     RewardDefinition[]
+  userRewards           UserReward[]
+  activityFeedEvents    ActivityFeedEvent[]
+  dailyCoachMessages    DailyCoachMessage[]
+  coachMessageTemplates CoachMessageTemplate[]
+  progressionEvents     ProgressionEvent[]
+  reputationCriteria    ReputationCriterion[]
+  userReputationScores  UserReputationScore[]
+  userReputationIndexes UserReputationIndex[]
+
 
   @@index([slug])
   @@index([customDomain])
@@ -474,6 +495,20 @@ model User {
   userBadges           UserBadge[]
   challengeParticipants ChallengeParticipant[]
   goals                Goal[]
+  userLeagues          UserLeague[]
+  userLeaguePeak       UserLeaguePeak?
+  hallOfFameEntries    HallOfFameEntry[]
+  publicProfile        UserPublicProfile?
+  profileVisits        ProfileVisit[]        @relation("ProfileVisitVisitor")
+  userRecords          UserRecord[]
+  userStatSnapshots    UserStatSnapshot[]
+  userRewards          UserReward[]
+  activityFeedEvents   ActivityFeedEvent[]   @relation("ActivityFeedActor")
+  dailyCoachMessages   DailyCoachMessage[]
+  progressionEvents    ProgressionEvent[]
+  reputationScores     UserReputationScore[]
+  reputationIndex      UserReputationIndex?
+
 
   @@index([organizationId])
   @@index([businessUnitId])
@@ -1071,9 +1106,696 @@ model Season {
   leaderboards Leaderboard[]
   challenges   Challenge[]
   goals        Goal[]
+  userLeagues  UserLeague[]
+  userLeaguePeaks UserLeaguePeak[]
+  hallOfFameEntries HallOfFameEntry[]
+  userRecords   UserRecord[]
+  userStatSnapshots UserStatSnapshot[]
+  userRewards   UserReward[]
+
 
   @@index([organizationId])
   @@index([organizationId, isActive])
   @@index([organizationId, startDate, endDate])
   @@map("seasons")
+}
+
+// ============================================================
+// ENGAGEMENT ENGINE (Ticket 020B)
+// ============================================================
+
+// ============================================================
+// ENUMS — Engagement Engine
+// ============================================================
+
+enum LeagueTier {
+  BRONZE_III
+  BRONZE_II
+  BRONZE_I
+  SILVER_III
+  SILVER_II
+  SILVER_I
+  GOLD_III
+  GOLD_II
+  GOLD_I
+  PLATINUM_III
+  PLATINUM_II
+  PLATINUM_I
+  DIAMOND_III
+  DIAMOND_II
+  DIAMOND_I
+  MASTER
+  GRANDMASTER
+  LEGEND
+}
+
+enum HallOfFameCategory {
+  TOP_COUNTRY
+  TOP_REGION
+  TOP_SECTOR
+  TOP_SITE
+  SEASON_RECORD
+  ANNUAL_CHAMPION
+  ALL_TIME_RECORD
+}
+
+enum RecordScope {
+  USER
+  SITE
+  SECTOR
+  REGION
+  BUSINESS_UNIT
+  ORGANIZATION
+}
+
+enum RecordPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEASONAL
+  ANNUAL
+  ALL_TIME
+}
+
+enum RewardType {
+  BADGE
+  XP
+  GIFT_CARD
+  CASH_BONUS
+  PAID_LEAVE
+  VOUCHER
+  TRIP
+  TRAINING
+  PHYSICAL_ITEM
+  CUSTOM
+}
+
+enum RewardStatus {
+  PENDING
+  APPROVED
+  DELIVERED
+  REJECTED
+  EXPIRED
+}
+
+enum ActivityFeedType {
+  LEADERBOARD_ENTRY
+  BADGE_EARNED
+  RECORD_BROKEN
+  GOAL_COMPLETED
+  CHALLENGE_WON
+  LEAGUE_PROMOTION
+  LEAGUE_DEMOTION
+  HALL_OF_FAME_ENTRY
+  LEVEL_UP
+  STREAK_MILESTONE
+  TOP_RANKING
+}
+
+enum CoachMessageType {
+  DAILY_SUMMARY
+  GOAL_REMINDER
+  ENCOURAGEMENT
+  PROGRESSION_INSIGHT
+  ADVICE
+  ALERT
+  CONGRATULATION
+}
+
+enum ProgressionEventType {
+  ENTERED_TOP_100
+  ENTERED_TOP_50
+  ENTERED_TOP_10
+  ENTERED_TOP_3
+  REACHED_NUMBER_1
+  NEW_LEAGUE
+  LEAGUE_PROMOTION
+  LEAGUE_DEMOTION
+  NEW_BADGE
+  NEW_RECORD
+  GOAL_ACHIEVED
+  CHALLENGE_WON
+  STREAK_BROKEN
+  LEVEL_UP
+}
+
+enum ReputationCriterionType {
+  USAGE_REGULARITY
+  DATA_QUALITY
+  PROCESS_COMPLIANCE
+  CHALLENGE_PARTICIPATION
+  PEER_COLLABORATION
+  CLIENT_SATISFACTION
+  SENIORITY
+  CUSTOM
+}
+
+enum ProfileVisibilityLevel {
+  PUBLIC
+  ORGANIZATION
+  TEAM
+  PRIVATE
+}
+
+// ============================================================
+// LEAGUE ENGINE
+// ============================================================
+
+/// Définition des ligues disponibles dans une organisation
+model LeagueDefinition {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tier           LeagueTier
+  name           String
+  description    String?
+  icon           String?
+  color          String?      @default("#CD7F32")
+  minScore       Decimal?     @db.Decimal(15, 4)
+  maxScore       Decimal?     @db.Decimal(15, 4)
+  minRankPercent Decimal?     @db.Decimal(5, 2)
+  maxRankPercent Decimal?     @db.Decimal(5, 2)
+  xpBonus        Int          @default(0)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  userLeagues UserLeague[]
+
+  @@unique([organizationId, tier])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@map("league_definitions")
+}
+
+/// Ligue courante et historique d'un utilisateur
+model UserLeague {
+  id                 String            @id @default(uuid())
+  userId             String
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId     String
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  seasonId           String?
+  season             Season?           @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  leagueDefinitionId String
+  leagueDefinition   LeagueDefinition  @relation(fields: [leagueDefinitionId], references: [id], onDelete: Cascade)
+  tier               LeagueTier
+  assignedAt         DateTime          @default(now())
+  isCurrent          Boolean           @default(true)
+  promotedFrom       LeagueTier?
+  demotedFrom        LeagueTier?
+  scoreAtAssignment  Decimal?          @db.Decimal(15, 4)
+  rankAtAssignment   Int?
+  metadata           Json              @default("{}")
+  createdAt          DateTime          @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, isCurrent])
+  @@index([organizationId, tier])
+  @@index([seasonId])
+  @@map("user_leagues")
+}
+
+/// Meilleure ligue atteinte par un utilisateur (jamais réinitialisée)
+model UserLeaguePeak {
+  id             String     @id @default(uuid())
+  userId         String     @unique
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  peakTier       LeagueTier
+  achievedAt     DateTime
+  seasonId       String?
+  season         Season?    @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, peakTier])
+  @@map("user_league_peaks")
+}
+
+// ============================================================
+// HALL OF FAME
+// ============================================================
+
+/// Entrée permanente au Hall of Fame — jamais supprimée
+model HallOfFameEntry {
+  id             String              @id @default(uuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       HallOfFameCategory
+  scope          RecordScope
+  scopeRefId     String?
+  userId         String?
+  user           User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName       String
+  userAvatarUrl  String?
+  kpiDefinitionId String?
+  kpiCode        String?
+  kpiName        String?
+  value          Decimal             @db.Decimal(15, 4)
+  unit           String?
+  seasonId       String?
+  season         Season?             @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  seasonName     String?
+  year           Int?
+  rank           Int                 @default(1)
+  achievedAt     DateTime
+  metadata       Json                @default("{}")
+  createdAt      DateTime            @default(now())
+
+  @@index([organizationId])
+  @@index([organizationId, category])
+  @@index([organizationId, scope, scopeRefId])
+  @@index([userId])
+  @@index([year])
+  @@index([seasonId])
+  @@map("hall_of_fame_entries")
+}
+
+// ============================================================
+// PUBLIC PROFILE
+// ============================================================
+
+/// Profil public interne d'un utilisateur
+model UserPublicProfile {
+  id               String                @id @default(uuid())
+  userId           String                @unique
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId   String
+  organization     Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bio              String?
+  avatarUrl        String?
+  jobTitle         String?
+  joinedAt         DateTime?
+  customLinks      Json                  @default("[]")
+  highlightedBadges Json                 @default("[]")
+  visibility       ProfileVisibilityLevel @default(ORGANIZATION)
+  isVisible        Boolean               @default(true)
+  level            Int                   @default(1)
+  totalXp          Int                   @default(0)
+  metadata         Json                  @default("{}")
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  profileVisits    ProfileVisit[]
+
+  @@index([organizationId])
+  @@index([organizationId, isVisible])
+  @@map("user_public_profiles")
+}
+
+/// Configuration de visibilité des champs du profil par organisation
+model ProfileFieldVisibility {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fieldKey       String
+  isVisible      Boolean      @default(true)
+  visibleTo      ProfileVisibilityLevel @default(ORGANIZATION)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, fieldKey])
+  @@index([organizationId])
+  @@map("profile_field_visibilities")
+}
+
+// ============================================================
+// PROFILE VISITS
+// ============================================================
+
+/// Enregistrement des visites de profil
+model ProfileVisit {
+  id              String            @id @default(uuid())
+  organizationId  String
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  visitorId       String?
+  visitor         User?             @relation("ProfileVisitVisitor", fields: [visitorId], references: [id], onDelete: SetNull)
+  profileId       String
+  profile         UserPublicProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  visitedAt       DateTime          @default(now())
+  metadata        Json              @default("{}")
+
+  @@index([profileId])
+  @@index([visitorId])
+  @@index([organizationId])
+  @@index([profileId, visitedAt])
+  @@map("profile_visits")
+}
+
+/// Configuration du système de visite de profil par organisation
+model ProfileVisitConfig {
+  id              String       @id @default(uuid())
+  organizationId  String       @unique
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  isEnabled       Boolean      @default(true)
+  isPremiumOnly   Boolean      @default(false)
+  retentionDays   Int          @default(90)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("profile_visit_configs")
+}
+
+// ============================================================
+// RECORDS ENGINE
+// ============================================================
+
+/// Définition d'un type de record (configurable, générique)
+model RecordDefinition {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code           String
+  name           String
+  description    String?
+  icon           String?
+  color          String?      @default("#F59E0B")
+  kpiCode        String?
+  period         RecordPeriod
+  scope          RecordScope
+  isHigherBetter Boolean      @default(true)
+  isActive       Boolean      @default(true)
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  records UserRecord[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@map("record_definitions")
+}
+
+/// Enregistrement d'un record atteint par un utilisateur
+model UserRecord {
+  id                 String           @id @default(uuid())
+  organizationId     String
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recordDefinitionId String
+  recordDefinition   RecordDefinition @relation(fields: [recordDefinitionId], references: [id], onDelete: Cascade)
+  value              Decimal          @db.Decimal(15, 4)
+  previousValue      Decimal?         @db.Decimal(15, 4)
+  isCurrent          Boolean          @default(true)
+  isAllTime          Boolean          @default(false)
+  periodStart        DateTime?
+  periodEnd          DateTime?
+  seasonId           String?
+  season             Season?          @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  achievedAt         DateTime         @default(now())
+  metadata           Json             @default("{}")
+  createdAt          DateTime         @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([recordDefinitionId])
+  @@index([userId, recordDefinitionId, isCurrent])
+  @@index([organizationId, isAllTime])
+  @@map("user_records")
+}
+
+// ============================================================
+// PERSONAL STATISTICS
+// ============================================================
+
+/// Snapshot des statistiques comparatives d'un utilisateur
+model UserStatSnapshot {
+  id                    String       @id @default(uuid())
+  userId                String
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  seasonId              String?
+  season                Season?      @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  kpiCode               String?
+  betterThanPercent     Decimal?     @db.Decimal(5, 2)
+  progressFasterPercent Decimal?     @db.Decimal(5, 2)
+  topPercentile         Decimal?     @db.Decimal(5, 2)
+  rankInSite            Int?
+  rankInSector          Int?
+  rankInRegion          Int?
+  rankInOrganization    Int?
+  rankInBusinessUnit    Int?
+  totalUsersInScope     Int?
+  computedAt            DateTime     @default(now())
+  metadata              Json         @default("{}")
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, kpiCode, computedAt])
+  @@index([seasonId])
+  @@map("user_stat_snapshots")
+}
+
+// ============================================================
+// REWARDS ENGINE
+// ============================================================
+
+/// Définition d'une récompense (totalement générique)
+model RewardDefinition {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code            String
+  name            String
+  description     String?
+  type            RewardType
+  icon            String?
+  color           String?      @default("#10B981")
+  value           Decimal?     @db.Decimal(15, 2)
+  currency        String?      @default("EUR")
+  quantity        Int?
+  expiresInDays   Int?
+  isActive        Boolean      @default(true)
+  metadata        Json         @default("{}")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  userRewards UserReward[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@index([organizationId, isActive])
+  @@map("reward_definitions")
+}
+
+/// Attribution d'une récompense à un utilisateur
+model UserReward {
+  id                 String           @id @default(uuid())
+  organizationId     String
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rewardDefinitionId String
+  rewardDefinition   RewardDefinition @relation(fields: [rewardDefinitionId], references: [id], onDelete: Cascade)
+  status             RewardStatus     @default(PENDING)
+  reason             String?
+  triggeredBy        String?
+  seasonId           String?
+  season             Season?          @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  expiresAt          DateTime?
+  deliveredAt        DateTime?
+  metadata           Json             @default("{}")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, status])
+  @@index([rewardDefinitionId])
+  @@index([seasonId])
+  @@map("user_rewards")
+}
+
+// ============================================================
+// ACTIVITY FEED
+// ============================================================
+
+/// Événement du feed d'activité (alimenté par le Domain Event Bus)
+model ActivityFeedEvent {
+  id             String            @id @default(uuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorId        String?
+  actor          User?             @relation("ActivityFeedActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName      String?
+  actorAvatarUrl String?
+  type           ActivityFeedType
+  title          String
+  body           String?
+  icon           String?
+  color          String?
+  scopeType      String?
+  scopeRefId     String?
+  scopeName      String?
+  resourceType   String?
+  resourceId     String?
+  metadata       Json              @default("{}")
+  isVisible      Boolean           @default(true)
+  occurredAt     DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+
+  @@index([organizationId])
+  @@index([organizationId, occurredAt])
+  @@index([actorId])
+  @@index([organizationId, type])
+  @@index([organizationId, isVisible, occurredAt])
+  @@map("activity_feed_events")
+}
+
+// ============================================================
+// DAILY COACH
+// ============================================================
+
+/// Message quotidien du coach (à alimenter par l'IA future)
+model DailyCoachMessage {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           CoachMessageType
+  date           DateTime
+  title          String?
+  body           String
+  data           Json             @default("{}")
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  generatedBy    String?
+  metadata       Json             @default("{}")
+  createdAt      DateTime         @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, date])
+  @@index([organizationId, date])
+  @@map("daily_coach_messages")
+}
+
+/// Template de message pour le coach quotidien
+model CoachMessageTemplate {
+  id             String           @id @default(uuid())
+  organizationId String?
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           CoachMessageType
+  code           String
+  name           String
+  bodyTemplate   String
+  variables      Json             @default("[]")
+  isGlobal       Boolean          @default(false)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([code])
+  @@index([organizationId])
+  @@index([type])
+  @@index([isGlobal, isActive])
+  @@map("coach_message_templates")
+}
+
+// ============================================================
+// PROGRESSION NOTIFICATIONS
+// ============================================================
+
+/// Événement de progression déclenché par le moteur d'engagement
+model ProgressionEvent {
+  id             String                @id @default(uuid())
+  organizationId String
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           ProgressionEventType
+  previousValue  String?
+  newValue       String?
+  metadata       Json                  @default("{}")
+  notified       Boolean               @default(false)
+  notifiedAt     DateTime?
+  occurredAt     DateTime              @default(now())
+  createdAt      DateTime              @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, type])
+  @@index([organizationId, occurredAt])
+  @@index([notified])
+  @@map("progression_events")
+}
+
+// ============================================================
+// REPUTATION ENGINE
+// ============================================================
+
+/// Définition d'un critère de réputation (générique)
+model ReputationCriterion {
+  id             String                  @id @default(uuid())
+  organizationId String
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code           String
+  name           String
+  description    String?
+  type           ReputationCriterionType
+  weight         Decimal                 @default(1.0) @db.Decimal(5, 2)
+  maxScore       Decimal                 @default(100) @db.Decimal(7, 2)
+  config         Json                    @default("{}")
+  isActive       Boolean                 @default(true)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  reputationScores UserReputationScore[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@map("reputation_criteria")
+}
+
+/// Score de réputation d'un utilisateur par critère
+model UserReputationScore {
+  id                   String              @id @default(uuid())
+  userId               String
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId       String
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  criterionId          String
+  criterion            ReputationCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  score                Decimal             @db.Decimal(7, 2)
+  maxScore             Decimal             @db.Decimal(7, 2)
+  normalizedScore      Decimal             @db.Decimal(5, 2)
+  computedAt           DateTime            @default(now())
+  metadata             Json                @default("{}")
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([criterionId])
+  @@index([userId, criterionId, computedAt])
+  @@map("user_reputation_scores")
+}
+
+/// Index de réputation global d'un utilisateur (score agrégé)
+model UserReputationIndex {
+  id                  String       @id @default(uuid())
+  userId              String       @unique
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  globalScore         Decimal      @db.Decimal(7, 2)
+  percentile          Decimal?     @db.Decimal(5, 2)
+  rankInOrganization  Int?
+  breakdown           Json         @default("{}")
+  computedAt          DateTime     @default(now())
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, globalScore])
+  @@map("user_reputation_indexes")
 }

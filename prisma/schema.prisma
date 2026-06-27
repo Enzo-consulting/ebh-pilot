@@ -3,330 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-// ============================================================
-// ENUMS
-// ============================================================
-
-enum UserRole {
-  CEO
-  REGIONAL_DIRECTOR
-  SECTOR_DIRECTOR
-  SITE_DIRECTOR
-  SALES_MANAGER
-  SALES_REP
-}
-
-/// Theme par defaut de l interface pour cette organisation.
-enum Theme {
-  LIGHT
-  DARK
-  AUTO
-}
-
-enum ProspectStatus {
-  NEW
-  CONTACTED
-  QUALIFIED
-  WON
-  LOST
-}
-
-enum ClientStatus {
-  PROSPECT
-  ACTIVE
-  INACTIVE
-}
-
-enum ImportJobStatus {
-  PENDING
-  PROCESSING
-  SUCCESS
-  FAILED
-}
-
-// ============================================================
-// MODULE ENGINE — Ticket 016
-// ============================================================
-
-/// Categorie fonctionnelle d un module.
-enum ModuleCategory {
-  SALES
-  OPERATIONS
-  FINANCE
-  HR
-  ANALYTICS
-  AI
-  INTEGRATION
-  COMMUNICATION
-  DOCUMENTS
-  MOBILE
-}
-
-/// Code unique d une fonctionnalite activable par organisation.
-enum FeatureCode {
-  AI_TRANSLATION
-  AI_ANALYSIS
-  AI_IMPORT
-  AI_ASSISTANT
-  PDF_GENERATION
-  EXPORT_EXCEL
-  EXPORT_PDF
-  DOCUMENTS
-  EMAILING
-  SMS
-  WHATSAPP
-  PUSH_NOTIFICATIONS
-  YOUSIGN
-  DOCUSIGN
-  API_ACCESS
-  WEBHOOK
-  REPORTING
-  ADVANCED_ANALYTICS
-  CUSTOM_DASHBOARDS
-  MOBILE_APP
-  GPS_TRACKING
-  QR_SCAN
-  BARCODE_SCAN
-  OFFLINE_MODE
-  CUSTOM_DOMAIN
-  WHITE_LABEL
-  CHALLENGES
-  LEADERBOARD
-  AUDIT_LOG
-  MULTI_ORGANIZATION
-  SSO
-}
-
-// ============================================================
-// ORGANISATION MULTI-TENANT — WHITE LABEL
-// ============================================================
-
-model Organization {
-  id               String  @id @default(uuid())
-  name             String
-  displayName      String?
-  slug             String  @unique
-  tagline          String?
-  logoUrl          String?
-  logoCompactUrl   String?
-  faviconUrl       String?
-  loginImageUrl    String?
-  primaryColor     String? @default("#3B82F6")
-  secondaryColor   String? @default("#1E40AF")
-  accentColor      String? @default("#F59E0B")
-  defaultTheme     Theme   @default(LIGHT)
-  website          String?
-  supportEmail     String?
-  supportPhone     String?
-  customDomain     String? @unique
-  language         String  @default("fr")
-  timezone         String  @default("Europe/Paris")
-  currency         String  @default("EUR")
-  dateFormat       String  @default("DD/MM/YYYY")
-  numberFormat     String  @default(",")
-  privacyPolicyUrl String?
-  termsUrl         String?
-  footerLink       String?
-  footerText       String?
-  isWhiteLabelEnabled Boolean @default(false)
-  isActive         Boolean @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  businessUnits BusinessUnit[]
-  regions       Region[]
-  users         User[]
-  modules       OrganizationModule[]
-  features      OrganizationFeature[]
-
-  @@index([slug])
-  @@index([customDomain])
-}
-
-model BusinessUnit {
-  id             String       @id @default(uuid())
-  name           String
-  code           String?
-  description    String?
-  isActive       Boolean      @default(true)
-  organizationId String
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-// ============================================================
-// ENUMS
-// ============================================================
-
-enum UserRole {
-  CEO
-  REGIONAL_DIRECTOR
-  SECTOR_DIRECTOR
-  SITE_DIRECTOR
-  SALES_MANAGER
-  SALES_REP
-}
-
-/// Theme par defaut de l interface pour cette organisation.
-enum Theme {
-  LIGHT
-  DARK
-  AUTO
-}
-
-enum ProspectStatus {
-  NEW
-  CONTACTED
-  QUALIFIED
-  WON
-  LOST
-}
-
-enum ClientStatus {
-  PROSPECT
-  ACTIVE
-  INACTIVE
-}
-
-enum ImportJobStatus {
-  PENDING
-  PROCESSING
-  SUCCESS
-  FAILED
-}
-
-// ============================================================
-// MODULE ENGINE — Ticket 016
-// ============================================================
-
-/// Categorie fonctionnelle d un module.
-enum ModuleCategory {
-  SALES
-  OPERATIONS
-  FINANCE
-  HR
-  ANALYTICS
-  AI
-  INTEGRATION
-  COMMUNICATION
-  DOCUMENTS
-  MOBILE
-}
-
-/// Code unique d une fonctionnalite activable par organisation.
-enum FeatureCode {
-  AI_TRANSLATION
-  AI_ANALYSIS
-  AI_IMPORT
-  AI_ASSISTANT
-  PDF_GENERATION
-  EXPORT_EXCEL
-  EXPORT_PDF
-  DOCUMENTS
-  EMAILING
-  SMS
-  WHATSAPP
-  PUSH_NOTIFICATIONS
-  YOUSIGN
-  DOCUSIGN
-  API_ACCESS
-  WEBHOOK
-  REPORTING
-  ADVANCED_ANALYTICS
-  CUSTOM_DASHBOARDS
-  MOBILE_APP
-  GPS_TRACKING
-  QR_SCAN
-  BARCODE_SCAN
-  OFFLINE_MODE
-  CUSTOM_DOMAIN
-  WHITE_LABEL
-  CHALLENGES
-  LEADERBOARD
-  AUDIT_LOG
-  MULTI_ORGANIZATION
-  SSO
-}
-
-// ============================================================
-// AUDIT ENGINE — Ticket 018
-// ============================================================
-
-/// Type d evenement de domaine pour le journal d audit.
-/// Miroir de l enum DomainEvent du Ticket 017.
-enum DomainEventType {
-  USER_CREATED
-  USER_UPDATED
-  USER_DELETED
-  PROSPECT_CREATED
-  PROSPECT_UPDATED
-  PROSPECT_DELETED
-  CLIENT_CREATED
-  CLIENT_UPDATED
-  PRODUCT_CREATED
-  PRODUCT_UPDATED
-  IMPORT_STARTED
-  IMPORT_COMPLETED
-  IMPORT_FAILED
-  DOCUMENT_GENERATED
-  DOCUMENT_SIGNED
-  TASK_CREATED
-  TASK_COMPLETED
-  AI_REQUESTED
-  AI_COMPLETED
-  WORKFLOW_STARTED
-  WORKFLOW_FINISHED
-  NOTIFICATION_CREATED
-  LOGIN_SUCCESS
-  LOGIN_FAILED
-  MODULE_ENABLED
-  FEATURE_ENABLED
-}
-
-// ============================================================
-// ORGANISATION MULTI-TENANT — WHITE LABEL
-// ============================================================
-
-model Organization {
-  id                  String   @id @default(uuid())
-  name                String
-  displayName         String?
-  slug                String   @unique
-  tagline             String?
-  logoUrl             String?
-  logoCompactUrl      String?
-  faviconUrl          String?
-  loginImageUrl       String?
-  primaryColor        String?  @default("#3B82F6")
-  secondaryColor      String?  @default("#1E40AF")
-  accentColor         String?  @default("#F59E0B")
-  defaultTheme        Theme    @default(LIGHT)
-  website             String?
-  supportEmail        String?
-  supportPhone        String?
-  customDomain        String?  @unique
-  language            String   @default("fr")
-  provider = "prisma-client-js"
-}
-
-datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 // ============================================================
-// ENUMS
+// ENUMS — Core
 // ============================================================
 
 enum UserRole {
@@ -366,7 +49,7 @@ enum ImportJobStatus {
 }
 
 // ============================================================
-// MODULE ENGINE — Ticket 016
+// ENUMS — Module Engine (Ticket 016)
 // ============================================================
 
 enum ModuleCategory {
@@ -417,7 +100,7 @@ enum FeatureCode {
 }
 
 // ============================================================
-// AUDIT ENGINE — Ticket 018
+// ENUMS — Audit Engine (Ticket 018)
 // ============================================================
 
 enum DomainEventType {
@@ -450,10 +133,9 @@ enum DomainEventType {
 }
 
 // ============================================================
-// TENANT CONFIGURATION ENGINE — Ticket 019
+// ENUMS — Tenant Config Engine (Ticket 019)
 // ============================================================
 
-/// Categorie d un parametre de configuration organisation.
 enum SettingCategory {
   GENERAL
   LOCALE
@@ -471,7 +153,6 @@ enum SettingCategory {
   MOBILE
 }
 
-/// Type de valeur d un parametre de configuration.
 enum SettingValueType {
   STRING
   NUMBER
@@ -484,7 +165,6 @@ enum SettingValueType {
   PHONE
 }
 
-/// Canal de notification supporte.
 enum NotificationChannel {
   EMAIL
   SMS
@@ -497,7 +177,6 @@ enum NotificationChannel {
   WEBHOOK
 }
 
-/// Fournisseur d integration externe.
 enum IntegrationProvider {
   OPENAI
   ANTHROPIC
@@ -523,7 +202,6 @@ enum IntegrationProvider {
   PIPEDRIVE
 }
 
-/// Statut d une integration.
 enum IntegrationStatus {
   ACTIVE
   INACTIVE
@@ -533,7 +211,115 @@ enum IntegrationStatus {
 }
 
 // ============================================================
-// ORGANISATION MULTI-TENANT — WHITE LABEL
+// ENUMS — Performance Engine (Ticket 020)
+// ============================================================
+
+enum KpiUnit {
+  COUNT
+  CURRENCY
+  PERCENTAGE
+  DURATION
+  SCORE
+  RATIO
+  CUSTOM
+}
+
+enum KpiCalculationType {
+  SUM
+  AVERAGE
+  COUNT
+  MAX
+  MIN
+  LAST
+  WEIGHTED
+  CUSTOM
+}
+
+enum KpiAggregation {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  SEASON
+  CUSTOM
+}
+
+enum LeaderboardScope {
+  PERSONAL
+  TEAM
+  SITE
+  SECTOR
+  REGION
+  BUSINESS_UNIT
+  ORGANIZATION
+  NATIONAL
+  INTERNATIONAL
+}
+
+enum LeaderboardType {
+  RANKING
+  SCORE
+  POINTS
+  STREAK
+  ACHIEVEMENT
+}
+
+enum BadgeTriggerType {
+  KPI_THRESHOLD
+  LEADERBOARD_RANK
+  STREAK
+  CHALLENGE_WIN
+  GOAL_REACHED
+  FIRST_TIME
+  MANUAL
+  SEASONAL
+  LEVEL_UP
+  ANNIVERSARY
+}
+
+enum BadgeRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum ChallengeStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ChallengeType {
+  INDIVIDUAL
+  TEAM
+  COOPERATIVE
+  PERSONAL
+}
+
+enum GoalPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  CANCELLED
+  PAUSED
+}
+// ============================================================
+// ORGANISATION MULTI-TENANT — WHITE LABEL (Ticket 014)
 // ============================================================
 
 model Organization {
@@ -578,10 +364,17 @@ model Organization {
   workflowTemplates     WorkflowTemplate[]
   notificationTemplates NotificationTemplate[]
   integrations          OrganizationIntegration[]
+  kpiDefinitions        KpiDefinition[]
+  leaderboards          Leaderboard[]
+  badges                Badge[]
+  challenges            Challenge[]
+  goals                 Goal[]
+  seasons               Season[]
 
   @@index([slug])
   @@index([customDomain])
 }
+
 model BusinessUnit {
   id             String       @id @default(uuid())
   name           String
@@ -672,10 +465,15 @@ model User {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  ownedProspects  Prospect[]   @relation("ProspectOwner")
-  ownedProducts   Product[]    @relation("ProductOwner")
-  ownedImportJobs ImportJob[]  @relation("ImportJobOwner")
-  auditEvents     AuditEvent[]
+  ownedProspects       Prospect[]             @relation("ProspectOwner")
+  ownedProducts        Product[]              @relation("ProductOwner")
+  ownedImportJobs      ImportJob[]            @relation("ImportJobOwner")
+  auditEvents          AuditEvent[]
+  kpiValues            UserKpiValue[]
+  leaderboardEntries   LeaderboardEntry[]
+  userBadges           UserBadge[]
+  challengeParticipants ChallengeParticipant[]
+  goals                Goal[]
 
   @@index([organizationId])
   @@index([businessUnitId])
@@ -749,7 +547,7 @@ model ImportJob {
   @@index([ownerId])
 }
 // ============================================================
-// MODULE ENGINE — Ticket 016
+// MODULE ENGINE (Ticket 016)
 // ============================================================
 
 model Module {
@@ -823,7 +621,7 @@ model OrganizationFeature {
 }
 
 // ============================================================
-// AUDIT ENGINE — Ticket 018
+// AUDIT ENGINE (Ticket 018)
 // ============================================================
 
 model AuditEvent {
@@ -863,63 +661,23 @@ model AuditEvent {
   @@index([isSystemEvent])
   @@map("audit_events")
 }
+
 // ============================================================
-// TENANT CONFIGURATION ENGINE — Ticket 019
+// TENANT CONFIGURATION ENGINE (Ticket 019)
 // ============================================================
 
-/// Parametre de configuration specifique a une organisation.
-///
-/// Ce modele est le coeur du Tenant Configuration Engine.
-/// Il stocke toutes les configurations propres a chaque organisation,
-/// organisees par categorie et identifiees par une cle unique.
-///
-/// EXEMPLES DE CLES :
-///   language, timezone, currency, fiscalYear, vatRate
-///   quotationPrefix, invoicePrefix, dateFormat, timeFormat
-///   decimalSeparator, thousandSeparator, maxProspectsPerUser
-///   defaultWorkflow, aiProvider, aiModel, aiTemperature
-///   primaryColor, fontFamily, logoHeight
-///
-/// REGLES :
-/// - Une cle est unique par organisation (contrainte @@unique)
-/// - La valeur est toujours une string serialisee
-/// - Le type est stocke pour la deserialisation cote application
-/// - Les valeurs sensibles (API keys) ne sont jamais stockees ici
-///   — utiliser OrganizationIntegration.encryptedConfig a la place
 model OrganizationSetting {
   id             String           @id @default(uuid())
-
-  /// Organisation proprietaire de ce parametre
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  /// Cle unique du parametre au sein de l organisation
-  /// Convention: snake_case (ex: "vat_rate", "fiscal_year_start", "ai_model")
   key            String
-
-  /// Valeur serialisee en string
-  /// Numbers: "19.6", Booleans: "true"/"false", JSON: "{...}", Colors: "#3B82F6"
   value          String
-
-  /// Type de la valeur pour la deserialisation
   valueType      SettingValueType @default(STRING)
-
-  /// Categorie pour le regroupement et les permissions
   category       SettingCategory  @default(GENERAL)
-
-  /// Description lisible par un humain (pour l interface admin)
   description    String?
-
-  /// Valeur par defaut du systeme (pour le reset)
   defaultValue   String?
-
-  /// Si true, cette valeur ne peut pas etre modifiee par l admin de l organisation
-  /// (reserve aux super-admins EBH-Pilot)
   isReadOnly     Boolean          @default(false)
-
-  /// Si true, ce parametre est visible dans l interface admin de l organisation
   isVisible      Boolean          @default(true)
-
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -929,57 +687,20 @@ model OrganizationSetting {
   @@map("organization_settings")
 }
 
-/// Template de workflow personnalisable par organisation.
-///
-/// Un workflow definit les etapes par lesquelles passe une entite metier.
-/// Exemples : Prospect, Client, Commande, SAV, Projet, Maintenance, RH
-///
-/// Chaque organisation peut avoir ses propres workflows independamment des autres.
-/// Un secteur peut avoir un workflow "Prospect" different d un autre secteur.
-///
-/// EXEMPLES :
-///   - Automobile : Prospect → Contact → Essai → Offre → Commande → Livraison
-///   - Remorque : Prospect → Devis → Commande → Production → Livraison
-///   - Immobilier : Prospect → Visite → Offre → Compromis → Acte
-///   - Assurance : Prospect → Analyse → Devis → Signature → Suivi
 model WorkflowTemplate {
   id             String       @id @default(uuid())
-
-  /// Organisation proprietaire de ce workflow
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  /// Nom technique du workflow (ex: "prospect", "client", "order", "sav")
   code           String
-
-  /// Nom affiche a l utilisateur
   name           String
-
-  /// Description du workflow
   description    String?
-
-  /// Type d entite auquel s applique ce workflow
-  /// Exemples : "prospect", "client", "order", "ticket", "project", "employee"
   entityType     String
-
-  /// Si true, ce workflow est utilise par defaut pour ce type d entite
   isDefault      Boolean      @default(false)
-
-  /// Si false, ce workflow est archive et n est plus utilise
   isActive       Boolean      @default(true)
-
-  /// Couleur de la carte workflow dans l interface
   color          String?      @default("#3B82F6")
-
-  /// Icone du workflow (nom d icone Lucide ou URL)
   icon           String?
-
-  /// Ordre d affichage dans la liste des workflows
   displayOrder   Int          @default(0)
-
-  /// Configuration JSON libre pour les extensions futures
   config         Json?
-
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -992,65 +713,23 @@ model WorkflowTemplate {
   @@map("workflow_templates")
 }
 
-/// Etape d un workflow configurable.
-///
-/// Chaque etape represente un statut ou une phase du workflow.
-/// Les transitions definissent vers quelles etapes on peut avancer ou reculer.
-///
-/// EXEMPLES pour un workflow Prospect :
-///   Step 1: "Nouveau"     → transitions: [2]
-///   Step 2: "Contacte"    → transitions: [3, 5]
-///   Step 3: "Qualifie"    → transitions: [4, 5]
-///   Step 4: "Gagne"       → transitions: []
-///   Step 5: "Perdu"       → transitions: []
 model WorkflowStep {
   id                 String           @id @default(uuid())
-
   workflowTemplateId String
   workflowTemplate   WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
-
-  /// Code technique de l etape (ex: "new", "contacted", "won", "lost")
   code               String
-
-  /// Nom affiche a l utilisateur
   name               String
-
-  /// Description de cette etape
   description        String?
-
-  /// Position dans le workflow (0 = premiere etape)
   order              Int              @default(0)
-
-  /// Couleur de l etape (badge, kanban card)
   color              String?          @default("#6B7280")
-
-  /// Icone de l etape (nom Lucide ou URL)
   icon               String?
-
-  /// Si true, c est l etape initiale (entree dans le workflow)
   isInitial          Boolean          @default(false)
-
-  /// Si true, c est une etape terminale (sortie du workflow)
   isFinal            Boolean          @default(false)
-
-  /// Si true, cette etape est consideree comme un succes (ex: "Gagne", "Livre")
   isSuccess          Boolean          @default(false)
-
-  /// Codes des etapes vers lesquelles on peut transitionner depuis cette etape
-  /// Stocke comme tableau JSON: ["contacted", "lost"]
   transitions        Json             @default("[]")
-
-  /// Conditions requises pour entrer dans cette etape (JSON)
-  /// Exemples: { "requiredFields": ["email", "phone"], "minScore": 50 }
   entryConditions    Json?
-
-  /// Actions automatiques declenchees lors de l entree dans cette etape (JSON)
-  /// Exemples: { "notify": ["manager"], "createTask": "call_back", "emit": "PROSPECT_UPDATED" }
   onEnterActions     Json?
-
-  /// Delai SLA avant escalade (en heures). Null = pas de SLA.
   slaHours           Int?
-
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -1060,57 +739,20 @@ model WorkflowStep {
   @@map("workflow_steps")
 }
 
-/// Template de notification par canal et par evenement.
-///
-/// Permet a chaque organisation de personnaliser les messages envoyes
-/// selon le canal (email, SMS, push, WhatsApp, Teams, Slack, Discord).
-///
-/// VARIABLES SUPPORTEES dans les templates (handlebars-like) :
-///   {{user.name}}, {{organization.name}}, {{resource.name}},
-///   {{event}}, {{date}}, {{url}}, {{branding.primaryColor}}
-///
-/// EXEMPLES :
-///   Canal: EMAIL, Evenement: PROSPECT_CREATED
-///   Sujet: "Nouveau prospect : {{prospect.name}}"
-///   Corps: "Bonjour {{user.name}}, un nouveau prospect a ete cree..."
 model NotificationTemplate {
   id             String              @id @default(uuid())
-
-  /// Organisation proprietaire de ce template
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  /// Canal de notification
   channel        NotificationChannel
-
-  /// Evenement de domaine qui declenche ce template
-  /// Correspond aux valeurs de DomainEventType (Ticket 017)
   eventType      String
-
-  /// Nom affiche dans l interface admin
   name           String
-
-  /// Sujet du message (pour email, push, Teams)
   subject        String?
-
-  /// Corps du message (texte ou HTML selon le canal)
   body           String
-
-  /// Version HTML du corps (pour email uniquement)
   bodyHtml       String?
-
-  /// Langue de ce template (code ISO 639-1, ex: "fr", "en", "de")
   locale         String              @default("fr")
-
-  /// Si false, ce template est desactive (les notifications ne sont pas envoyees)
   isActive       Boolean             @default(true)
-
-  /// Si true, ce template est le template par defaut pour ce canal + evenement + locale
   isDefault      Boolean             @default(false)
-
-  /// Variables disponibles pour ce template (documentation)
   availableVars  Json?
-
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -1121,47 +763,18 @@ model NotificationTemplate {
   @@map("notification_templates")
 }
 
-/// Definition d une integration externe disponible sur la plateforme.
-///
-/// Ce modele decrit ce qu est une integration (comme un catalogue).
-/// L activation par organisation est geree dans OrganizationIntegration.
-///
-/// EXEMPLES :
-///   OpenAI, Anthropic, Stripe, Pennylane, YouSign, Google Workspace
 model Integration {
   id          String              @id @default(uuid())
-
-  /// Fournisseur de l integration
   provider    IntegrationProvider @unique
-
-  /// Nom affiche
   name        String
-
-  /// Description de l integration
   description String?
-
-  /// Icone (URL ou nom)
   icon        String?
-
-  /// Site officiel
   website     String?
-
-  /// Documentation de l integration
   docsUrl     String?
-
-  /// Champs de configuration requis (JSON schema)
-  /// Exemples: { "apiKey": { "type": "string", "required": true, "secret": true } }
   configSchema Json?
-
-  /// Version de l API supportee
   apiVersion  String?
-
-  /// Si false, cette integration n est plus disponible
   isActive    Boolean             @default(true)
-
-  /// Si true, cette integration est en beta
   isBeta      Boolean             @default(false)
-
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
@@ -1170,59 +783,297 @@ model Integration {
   @@index([provider])
 }
 
-/// Activation et configuration d une integration pour une organisation specifique.
-///
-/// SECURITE — API KEYS :
-/// Les cles API ne sont JAMAIS stockees en clair dans la base de donnees.
-/// Le champ encryptedConfig stocke les valeurs sensibles chiffrees (AES-256-GCM).
-/// La cle de chiffrement est une variable d environnement (ENCRYPTION_KEY).
-///
-/// Le champ config peut stocker des valeurs non-sensibles (endpoint URL, model name, etc.)
 model OrganizationIntegration {
-  id             String            @id @default(uuid())
-
-  /// Organisation qui utilise cette integration
-  organizationId String
-  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  /// Integration activee
-  integrationId  String
-  integration    Integration       @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-
-  /// Statut de l integration
-  status         IntegrationStatus @default(PENDING_SETUP)
-
-  /// Configuration non-sensible (endpoint, model, options)
-  config         Json?
-
-  /// Configuration chiffree (API keys, secrets, tokens)
-  /// JAMAIS stocke en clair. Chiffrement AES-256-GCM.
-  encryptedConfig String?
-
-  /// Date d expiration de l integration (pour les tokens OAuth, abonnements)
-  expiresAt      DateTime?
-
-  /// Date de la derniere utilisation reussie
-  lastUsedAt     DateTime?
-
-  /// Date de la derniere erreur
-  lastErrorAt    DateTime?
-
-  /// Message de la derniere erreur
-  lastErrorMsg   String?
-
-  /// Nombre d appels ce mois-ci (pour les quotas)
-  monthlyCallCount Int             @default(0)
-
-  /// Quota mensuel maximum d appels (null = illimite)
-  monthlyQuota   Int?
-
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id               String            @id @default(uuid())
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integrationId    String
+  integration      Integration       @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  status           IntegrationStatus @default(PENDING_SETUP)
+  config           Json?
+  encryptedConfig  String?
+  expiresAt        DateTime?
+  lastUsedAt       DateTime?
+  lastErrorAt      DateTime?
+  lastErrorMsg     String?
+  monthlyCallCount Int               @default(0)
+  monthlyQuota     Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@unique([organizationId, integrationId])
   @@index([organizationId])
   @@index([integrationId])
   @@index([status])
   @@map("organization_integrations")
+}
+// ============================================================
+// PERFORMANCE ENGINE (Ticket 020)
+// ============================================================
+
+model KpiDefinition {
+  id              String             @id @default(uuid())
+  organizationId  String
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code            String
+  name            String
+  description     String?
+  unit            KpiUnit            @default(COUNT)
+  calculationType KpiCalculationType @default(SUM)
+  aggregation     KpiAggregation     @default(MONTHLY)
+  icon            String?
+  color           String?            @default("#3B82F6")
+  displayOrder    Int                @default(0)
+  config          Json?
+  defaultTarget   Decimal?           @db.Decimal(15, 4)
+  alertThreshold  Decimal?           @db.Decimal(15, 4)
+  isActive        Boolean            @default(true)
+  isPublic        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  values       UserKpiValue[]
+  leaderboards Leaderboard[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@map("kpi_definitions")
+}
+
+model UserKpiValue {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kpiId          String
+  kpi            KpiDefinition @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  value          Decimal       @db.Decimal(15, 4)
+  periodStart    DateTime
+  periodEnd      DateTime
+  calculatedAt   DateTime      @default(now())
+  source         String        @default("event_bus")
+  metadata       Json          @default("{}")
+  seasonId       String?
+  season         Season?       @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([kpiId])
+  @@index([organizationId])
+  @@index([userId, kpiId])
+  @@index([userId, periodStart, periodEnd])
+  @@index([organizationId, kpiId, periodStart])
+  @@index([seasonId])
+  @@map("user_kpi_values")
+}
+
+model Leaderboard {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiId          String
+  kpi            KpiDefinition    @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  scope          LeaderboardScope @default(ORGANIZATION)
+  type           LeaderboardType  @default(RANKING)
+  scopeEntityId  String?
+  aggregation    KpiAggregation   @default(MONTHLY)
+  isPublic       Boolean          @default(true)
+  isActive       Boolean          @default(true)
+  maxEntries     Int              @default(10)
+  config         Json?
+  seasonId       String?
+  season         Season?          @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  entries LeaderboardEntry[]
+
+  @@index([organizationId])
+  @@index([organizationId, scope])
+  @@index([kpiId])
+  @@index([seasonId])
+  @@map("leaderboards")
+}
+
+model LeaderboardEntry {
+  id            String      @id @default(uuid())
+  leaderboardId String
+  leaderboard   Leaderboard @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position      Int
+  score         Decimal     @db.Decimal(15, 4)
+  variation     Int?
+  calculatedAt  DateTime    @default(now())
+  periodStart   DateTime?
+  periodEnd     DateTime?
+
+  @@index([leaderboardId])
+  @@index([userId])
+  @@index([leaderboardId, position])
+  @@index([leaderboardId, calculatedAt])
+  @@map("leaderboard_entries")
+}
+
+model Badge {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code           String
+  name           String
+  description    String?
+  icon           String?
+  color          String?          @default("#F59E0B")
+  rarity         BadgeRarity      @default(COMMON)
+  triggerType    BadgeTriggerType @default(MANUAL)
+  triggerConfig  Json?
+  xpReward       Int              @default(0)
+  isRepeatable   Boolean          @default(false)
+  isPublic       Boolean          @default(true)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  userBadges UserBadge[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, triggerType])
+  @@map("badges")
+}
+
+model UserBadge {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId    String
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  earnedAt   DateTime @default(now())
+  context    Json?
+  isNotified Boolean  @default(false)
+
+  @@index([userId])
+  @@index([badgeId])
+  @@index([userId, earnedAt])
+  @@map("user_badges")
+}
+
+model Challenge {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  status          ChallengeStatus @default(DRAFT)
+  type            ChallengeType   @default(INDIVIDUAL)
+  kpiCode         String
+  targetValue     Decimal?        @db.Decimal(15, 4)
+  startDate       DateTime
+  endDate         DateTime
+  reward          Json?
+  rules           Json?
+  imageUrl        String?
+  isPublic        Boolean         @default(true)
+  maxParticipants Int?
+  seasonId        String?
+  season          Season?         @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  participants ChallengeParticipant[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, startDate, endDate])
+  @@index([seasonId])
+  @@map("challenges")
+}
+
+model ChallengeParticipant {
+  id           String    @id @default(uuid())
+  challengeId  String
+  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score        Decimal   @default(0) @db.Decimal(15, 4)
+  position     Int?
+  rewardEarned Json?
+  joinedAt     DateTime  @default(now())
+  lastScoredAt DateTime?
+
+  @@unique([challengeId, userId])
+  @@index([challengeId])
+  @@index([userId])
+  @@index([challengeId, position])
+  @@map("challenge_participants")
+}
+
+model Goal {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiCode        String
+  name           String
+  description    String?
+  targetValue    Decimal      @db.Decimal(15, 4)
+  period         GoalPeriod   @default(MONTHLY)
+  startDate      DateTime
+  endDate        DateTime
+  status         GoalStatus   @default(ACTIVE)
+  seasonId       String?
+  season         Season?      @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  progress GoalProgress[]
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userId, status])
+  @@index([userId, startDate, endDate])
+  @@map("goals")
+}
+
+model GoalProgress {
+  id           String   @id @default(uuid())
+  goalId       String
+  goal         Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  currentValue Decimal  @db.Decimal(15, 4)
+  progressPct  Decimal  @db.Decimal(7, 2)
+  projection   Decimal? @db.Decimal(15, 4)
+  recordedAt   DateTime @default(now())
+
+  @@index([goalId])
+  @@index([goalId, recordedAt])
+  @@map("goal_progress")
+}
+
+model Season {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean      @default(true)
+  isArchived     Boolean      @default(false)
+  color          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  kpiValues    UserKpiValue[]
+  leaderboards Leaderboard[]
+  challenges   Challenge[]
+  goals        Goal[]
+
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@index([organizationId, startDate, endDate])
+  @@map("seasons")
 }

@@ -1,5 +1,6 @@
 /**
  * events/hooks/clientHooks.ts — Client Domain Hooks
+ *
  * Ticket 022 — Integration Engine & Domain Hooks
  *
  * CLIENT_CREATED → KPI + XP + Badges + Leaderboard + Audit
@@ -9,6 +10,7 @@
 import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
+
 import { recordKpiValue } from '../../performance/performanceEngine.js';
 import { grantXp, resolveXpAmount, XP_SETTING_KEYS } from '../../progression/xpService.js';
 import { evaluateBadges } from '../../performance/badgeEngine.js';
@@ -16,58 +18,106 @@ import { computeLeaderboard } from '../../performance/leaderboardEngine.js';
 import { createAudit } from '../../audit/auditService.js';
 
 const DEBUG = process.env.EVENT_DEBUG === 'true';
-const log = (msg: string) => DEBUG && console.log(`[ClientHooks] ${msg}`);
+
+function log(msg: string): void {
+  if (DEBUG) console.log(`[ClientHooks] ${msg}`);
+}
 
 async function onClientCreated(payload: DomainEventPayload): Promise<void> {
+  log(`CLIENT_CREATED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  // KPI
+  // 1. KPI
   try {
-    await recordKpiValue({ userId: payload.userId, organizationId: payload.organizationId, kpiCode: 'clients_created', value: 1, periodStart, periodEnd, source: DomainEvent.CLIENT_CREATED, metadata: { resourceId: payload.resourceId } });
+    await recordKpiValue({
+      userId: payload.userId,
+      organizationId: payload.organizationId,
+      kpiCode: 'clients_created',
+      value: 1,
+      periodStart,
+      periodEnd,
+      source: DomainEvent.CLIENT_CREATED,
+      metadata: { resourceId: payload.resourceId },
+    });
     log('KPI updated');
-  } catch (err) { errors++; console.error('[ClientHooks] KPI:', err); }
+  } catch (err) { errorCount++; console.error('[ClientHooks] KPI:', err); }
 
-  // XP
+  // 2. XP
   try {
     const xp = await resolveXpAmount(payload.organizationId, XP_SETTING_KEYS.CLIENT_CREATED);
-    await grantXp({ organizationId: payload.organizationId, userId: payload.userId, xp, sourceEvent: DomainEvent.CLIENT_CREATED, sourceResource: 'Client', sourceResourceId: payload.resourceId });
-    log(`XP: ${xp}`);
-  } catch (err) { errors++; console.error('[ClientHooks] XP:', err); }
+    await grantXp({
+      organizationId: payload.organizationId,
+      userId: payload.userId,
+      xp,
+      sourceEvent: DomainEvent.CLIENT_CREATED,
+      sourceResource: 'Client',
+      sourceResourceId: payload.resourceId,
+    });
+    log('XP granted');
+  } catch (err) { errorCount++; console.error('[ClientHooks] XP:', err); }
 
-  // Badges
+  // 3. Badges
   try {
     await evaluateBadges(payload.userId, payload.organizationId, 'clients_created', 1);
-  } catch (err) { errors++; console.error('[ClientHooks] Badge:', err); }
+    log('Badges evaluated');
+  } catch (err) { errorCount++; console.error('[ClientHooks] Badges:', err); }
 
-  // Leaderboard
+  // 4. Leaderboard
   try {
     await computeLeaderboard(payload.organizationId, 'clients_monthly', periodStart, periodEnd);
-  } catch (err) { errors++; console.error('[ClientHooks] Leaderboard:', err); }
+    log('Leaderboard refreshed');
+  } catch (err) { errorCount++; console.error('[ClientHooks] Leaderboard:', err); }
 
-  // Audit
+  // 5. Audit
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'CLIENT_CREATED', resourceType: 'Client', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[ClientHooks] Audit:', err); }
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'Client',
+      resourceId: payload.resourceId,
+      event: DomainEvent.CLIENT_CREATED,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[ClientHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_CREATED, Date.now() - start, errors > 0);
-  log(`CLIENT_CREATED done in ${Date.now() - start}ms`);
+  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_CREATED, 'onClientCreated', Date.now() - start, errorCount);
 }
 
 async function onClientUpdated(payload: DomainEventPayload): Promise<void> {
+  log(`CLIENT_UPDATED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'CLIENT_UPDATED', resourceType: 'Client', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[ClientHooks] Audit (update):', err); }
-  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_UPDATED, Date.now() - start, errors > 0);
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'Client',
+      resourceId: payload.resourceId,
+      event: DomainEvent.CLIENT_UPDATED,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[ClientHooks] Audit (update):', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_UPDATED, 'onClientUpdated', Date.now() - start, errorCount);
 }
 
 export function registerClientHooks(): void {
-  eventBus.subscribe(DomainEvent.CLIENT_CREATED, onClientCreated);
-  eventBus.subscribe(DomainEvent.CLIENT_UPDATED, onClientUpdated);
-  if (DEBUG) console.log('[ClientHooks] Registered 2 hooks');
+  eventBus.on(DomainEvent.CLIENT_CREATED, onClientCreated);
+  eventBus.on(DomainEvent.CLIENT_UPDATED, onClientUpdated);
 }

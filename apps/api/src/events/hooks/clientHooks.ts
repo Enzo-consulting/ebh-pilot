@@ -22,8 +22,8 @@ async function onClientCreated(payload: DomainEventPayload): Promise<void> {
   const start = Date.now();
   let errors = 0;
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   // KPI
   try {
@@ -45,7 +45,7 @@ async function onClientCreated(payload: DomainEventPayload): Promise<void> {
 
   // Leaderboard
   try {
-    await computeLeaderboard(payload.organizationId, 'clients_created', 'monthly');
+    await computeLeaderboard(payload.organizationId, 'clients_monthly', periodStart, periodEnd);
   } catch (err) { errors++; console.error('[ClientHooks] Leaderboard:', err); }
 
   // Audit

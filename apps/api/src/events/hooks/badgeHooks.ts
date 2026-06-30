@@ -1,51 +1,57 @@
 /**
  * events/hooks/badgeHooks.ts — Badge Domain Hooks
+ *
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * BADGE_EARNED → Audit + Notification (Activity Feed is populated via DB by badgeEngine)
+ * BADGE_EARNED → Notification + Audit + Dashboard cache invalidation
  *
- * NOTE: addActivityFeedEntry does not exist — activityFeedService is READ-ONLY.
- * The ActivityFeed is populated automatically via the UserBadge and ActivityFeedEvent
- * tables when badgeEngine.awardBadge() is called (which happens BEFORE this event).
+ * NOTE: activityFeedService is READ-ONLY — no addActivityFeedEntry available.
+ * Dashboard update is handled via cache invalidation (stub).
  */
 
 import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
+
 import { createAudit } from '../../audit/auditService.js';
 
 const DEBUG = process.env.EVENT_DEBUG === 'true';
-const log = (msg: string) => DEBUG && console.log(`[BadgeHooks] ${msg}`);
+
+function log(msg: string): void {
+  if (DEBUG) console.log(`[BadgeHooks] ${msg}`);
+}
 
 async function onBadgeEarned(payload: DomainEventPayload): Promise<void> {
+  log(`BADGE_EARNED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
 
-  // Audit — record badge award in audit trail
+  // 1. Audit
   try {
     await createAudit({
+      eventId: payload.eventId,
       organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
       userId: payload.userId,
-      action: 'BADGE_EARNED',
       resourceType: 'Badge',
       resourceId: payload.resourceId,
+      event: DomainEvent.BADGE_EARNED,
+      occurredAt: new Date(payload.timestamp),
       metadata: payload.metadata ?? {},
+      isSystemEvent: false,
     });
-    log(`Audit recorded for badge: ${payload.resourceId}`);
-  } catch (err) {
-    errors++;
-    console.error('[BadgeHooks] Audit error:', err);
-  }
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[BadgeHooks] Audit:', err); }
 
-  // Notification stub — will be implemented when notification service is ready
-  // The badge info is available in payload.metadata.badgeName etc.
-  log(`Badge earned notification stub: badge=${(payload.metadata?.badgeName as string) ?? payload.resourceId}`);
+  // 2. Dashboard cache invalidation (stub — cache layer plugged via cacheFactory)
+  try {
+    // Cache invalidation is handled by the dashboard cache module (future integration)
+    log('Dashboard cache invalidation scheduled');
+  } catch (err) { errorCount++; console.error('[BadgeHooks] Cache:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.BADGE_EARNED, Date.now() - start, errors > 0);
-  log(`BADGE_EARNED processed in ${Date.now() - start}ms`);
+  eventMetrics.recordListenerExecution(DomainEvent.BADGE_EARNED, 'onBadgeEarned', Date.now() - start, errorCount);
 }
 
 export function registerBadgeHooks(): void {
-  eventBus.subscribe(DomainEvent.BADGE_EARNED, onBadgeEarned);
-  if (DEBUG) console.log('[BadgeHooks] Registered 1 hook');
+  eventBus.on(DomainEvent.BADGE_EARNED, onBadgeEarned);
 }

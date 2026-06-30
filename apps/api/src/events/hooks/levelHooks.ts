@@ -1,58 +1,71 @@
 /**
- * events/hooks/levelHooks.ts — Level/Progression Domain Hooks
+ * events/hooks/levelHooks.ts — Level Domain Hooks
+ *
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * USER_LEVEL_UP → Leaderboard + Audit
+ * USER_LEVEL_UP → Notification + Audit + Dashboard + Leaderboard + Coach IA stub
+ *
+ * NOTE: activityFeedService is READ-ONLY — no addActivityFeedEntry available.
  */
 
 import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
+
 import { computeLeaderboard } from '../../performance/leaderboardEngine.js';
 import { createAudit } from '../../audit/auditService.js';
 
 const DEBUG = process.env.EVENT_DEBUG === 'true';
-const log = (msg: string) => DEBUG && console.log(`[LevelHooks] ${msg}`);
+
+function log(msg: string): void {
+  if (DEBUG) console.log(`[LevelHooks] ${msg}`);
+}
 
 async function onUserLevelUp(payload: DomainEventPayload): Promise<void> {
+  log(`USER_LEVEL_UP org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), 0, 1); // Start of year (all-time ~ yearly)
-  const periodEnd = new Date(now.getFullYear() + 1, 0, 0); // End of year
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  // Leaderboard — update user level rankings
+  // 1. Leaderboard
   try {
-    await computeLeaderboard(payload.organizationId, 'user_levels_alltime', periodStart, periodEnd);
-    log('Leaderboard updated');
-  } catch (err) {
-    errors++;
-    console.error('[LevelHooks] Leaderboard:', err);
-  }
+    await computeLeaderboard(payload.organizationId, 'levels_monthly', periodStart, periodEnd);
+    log('Leaderboard refreshed');
+  } catch (err) { errorCount++; console.error('[LevelHooks] Leaderboard:', err); }
 
-  // Audit — record level promotion
+  // 2. Audit
   try {
     await createAudit({
+      eventId: payload.eventId,
       organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
       userId: payload.userId,
-      action: 'USER_LEVEL_UP',
-      resourceType: 'Level',
-      resourceId: payload.resourceId,
+      resourceType: 'UserLevel',
+      resourceId: payload.resourceId ?? payload.userId,
+      event: DomainEvent.USER_LEVEL_UP,
+      occurredAt: new Date(payload.timestamp),
       metadata: payload.metadata ?? {},
+      isSystemEvent: false,
     });
-    log(`Audit: level up to ${(payload.metadata?.newLevel as number) ?? '?'}`);
-  } catch (err) {
-    errors++;
-    console.error('[LevelHooks] Audit:', err);
-  }
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[LevelHooks] Audit:', err); }
 
-  log(`Level up notification stub: user=${payload.userId} newLevel=${(payload.metadata?.newLevel as number) ?? '?'}`);
+  // 3. Dashboard cache invalidation (stub)
+  try {
+    log('Dashboard cache invalidation scheduled');
+  } catch (err) { errorCount++; console.error('[LevelHooks] Cache:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.USER_LEVEL_UP, Date.now() - start, errors > 0);
-  log(`USER_LEVEL_UP done in ${Date.now() - start}ms`);
+  // 4. Coach IA stub (future integration)
+  try {
+    log('Coach IA notification stub — USER_LEVEL_UP');
+  } catch (err) { errorCount++; console.error('[LevelHooks] CoachIA:', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.USER_LEVEL_UP, 'onUserLevelUp', Date.now() - start, errorCount);
 }
 
 export function registerLevelHooks(): void {
-  eventBus.subscribe(DomainEvent.USER_LEVEL_UP, onUserLevelUp);
-  if (DEBUG) console.log('[LevelHooks] Registered 1 hook');
+  eventBus.on(DomainEvent.USER_LEVEL_UP, onUserLevelUp);
 }

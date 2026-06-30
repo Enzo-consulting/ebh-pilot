@@ -11,6 +11,8 @@ import { clientsRouter } from './routes/clients.js';
 import { productsRouter } from './routes/products.js';
 import { profitabilityRouter } from './routes/profitability.js';
 import { importsRouter } from './routes/imports.js';
+import { bootstrapListeners } from './events/listenerRegistry.js';
+import { bootstrapHooks } from './events/hookRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -137,7 +139,11 @@ app.listen(PORT, () => {
         // eslint-disable-next-line no-console
              console.log(`Port        : ${PORT}`);
 
-             // Verify database connectivity on startup.
+                     // ── Integration Engine Bootstrap (Ticket 022) ────────────────────────
+        bootstrapListeners();
+        bootstrapHooks();
+
+// Verify database connectivity on startup.
              prisma.$queryRaw`SELECT 1`
           .then(() => {
                       // eslint-disable-next-line no-console

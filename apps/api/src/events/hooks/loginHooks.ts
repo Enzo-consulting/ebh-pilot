@@ -1,64 +1,100 @@
 /**
- * events/hooks/loginHooks.ts — Login/Session Domain Hooks
+ * events/hooks/loginHooks.ts — Login Domain Hooks
+ *
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * LOGIN_SUCCESS → Daily login XP + Streak Leaderboard
- * LOGIN_FAILED  → Audit
+ * LOGIN_SUCCESS → Daily XP + Streak + Leaderboard + Audit
+ * LOGIN_FAILURE → Audit
  */
 
 import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
-import { grantXp } from '../../progression/xpService.js';
+
+import { grantXp, resolveXpAmount, XP_SETTING_KEYS } from '../../progression/xpService.js';
 import { computeLeaderboard } from '../../performance/leaderboardEngine.js';
 import { createAudit } from '../../audit/auditService.js';
 
 const DEBUG = process.env.EVENT_DEBUG === 'true';
-const log = (msg: string) => DEBUG && console.log(`[LoginHooks] ${msg}`);
 
-const DAILY_LOGIN_XP = 5;
+function log(msg: string): void {
+  if (DEBUG) console.log(`[LoginHooks] ${msg}`);
+}
 
 async function onLoginSuccess(payload: DomainEventPayload): Promise<void> {
+  log(`LOGIN_SUCCESS org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  // Daily Login XP
+  // 1. Daily Login XP
   try {
+    const xp = await resolveXpAmount(payload.organizationId, XP_SETTING_KEYS.LOGIN_SUCCESS);
     await grantXp({
       organizationId: payload.organizationId,
       userId: payload.userId,
-      xp: DAILY_LOGIN_XP,
+      xp,
       sourceEvent: DomainEvent.LOGIN_SUCCESS,
-      sourceResource: 'Session',
-      sourceResourceId: payload.resourceId,
+      sourceResource: 'Login',
+      sourceResourceId: payload.resourceId ?? payload.userId,
     });
-    log(`Daily login XP granted: ${DAILY_LOGIN_XP}`);
-  } catch (err) { errors++; console.error('[LoginHooks] XP:', err); }
+    log('Daily XP granted');
+  } catch (err) { errorCount++; console.error('[LoginHooks] XP:', err); }
 
-  // Streak leaderboard
+  // 2. Leaderboard
   try {
-    await computeLeaderboard(payload.organizationId, 'login_streak_monthly', periodStart, periodEnd);
-    log('Streak leaderboard updated');
-  } catch (err) { errors++; console.error('[LoginHooks] Leaderboard:', err); }
+    await computeLeaderboard(payload.organizationId, 'logins_monthly', periodStart, periodEnd);
+    log('Leaderboard refreshed');
+  } catch (err) { errorCount++; console.error('[LoginHooks] Leaderboard:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_SUCCESS, Date.now() - start, errors > 0);
-  log(`LOGIN_SUCCESS done in ${Date.now() - start}ms`);
+  // 3. Audit
+  try {
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'Session',
+      resourceId: payload.resourceId ?? payload.userId,
+      event: DomainEvent.LOGIN_SUCCESS,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[LoginHooks] Audit:', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_SUCCESS, 'onLoginSuccess', Date.now() - start, errorCount);
 }
 
-async function onLoginFailed(payload: DomainEventPayload): Promise<void> {
+async function onLoginFailure(payload: DomainEventPayload): Promise<void> {
+  log(`LOGIN_FAILURE org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'LOGIN_FAILED', resourceType: 'Session', resourceId: payload.resourceId, metadata: { ...payload.metadata, severity: 'warning' } });
-  } catch (err) { errors++; console.error('[LoginHooks] Audit:', err); }
-  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_FAILED, Date.now() - start, errors > 0);
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'Session',
+      resourceId: payload.resourceId ?? payload.userId ?? 'unknown',
+      event: DomainEvent.LOGIN_FAILURE,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[LoginHooks] Audit (failure):', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_FAILURE, 'onLoginFailure', Date.now() - start, errorCount);
 }
 
 export function registerLoginHooks(): void {
-  eventBus.subscribe(DomainEvent.LOGIN_SUCCESS, onLoginSuccess);
-  eventBus.subscribe(DomainEvent.LOGIN_FAILED, onLoginFailed);
-  if (DEBUG) console.log('[LoginHooks] Registered 2 hooks');
+  eventBus.on(DomainEvent.LOGIN_SUCCESS, onLoginSuccess);
+  eventBus.on(DomainEvent.LOGIN_FAILURE, onLoginFailure);
 }

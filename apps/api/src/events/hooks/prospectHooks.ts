@@ -24,25 +24,24 @@ function log(msg: string): void {
   if (DEBUG) console.log(`[ProspectHooks] ${msg}`);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PROSPECT_CREATED
-// ─────────────────────────────────────────────────────────────────────────────
-
 async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
   log(`PROSPECT_CREATED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
   let errorCount = 0;
 
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1); // Start of month
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of month
+
   // 1. KPI
   try {
-    const now = new Date();
     await recordKpiValue({
       userId: payload.userId,
       organizationId: payload.organizationId,
       kpiCode: 'prospects_created',
       value: 1,
-      periodStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
-      periodEnd: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1),
+      periodStart,
+      periodEnd,
       source: DomainEvent.PROSPECT_CREATED,
       metadata: { resourceId: payload.resourceId },
     });
@@ -69,9 +68,9 @@ async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
     log('Badges evaluated');
   } catch (err) { errorCount++; console.error('[ProspectHooks] Badge:', err); }
 
-  // 4. Leaderboard
+  // 4. Leaderboard — recompute monthly leaderboard for prospects
   try {
-    await computeLeaderboard(payload.organizationId, 'prospects_created', 'monthly');
+    await computeLeaderboard(payload.organizationId, 'prospects_monthly', periodStart, periodEnd);
     log('Leaderboard refreshed');
   } catch (err) { errorCount++; console.error('[ProspectHooks] Leaderboard:', err); }
 

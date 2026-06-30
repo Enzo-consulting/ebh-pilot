@@ -21,8 +21,8 @@ async function onImportCompleted(payload: DomainEventPayload): Promise<void> {
   let errors = 0;
   const importedCount = (payload.metadata?.recordCount as number) ?? 1;
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   // KPI
   try {
@@ -32,7 +32,7 @@ async function onImportCompleted(payload: DomainEventPayload): Promise<void> {
 
   // Leaderboard
   try {
-    await computeLeaderboard(payload.organizationId, 'imports_completed', 'monthly');
+    await computeLeaderboard(payload.organizationId, 'imports_monthly', periodStart, periodEnd);
     log('Leaderboard updated');
   } catch (err) { errors++; console.error('[ImportHooks] Leaderboard:', err); }
 

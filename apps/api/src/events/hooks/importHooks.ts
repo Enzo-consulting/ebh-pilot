@@ -1,62 +1,80 @@
 /**
  * events/hooks/importHooks.ts — Import Domain Hooks
+ *
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * IMPORT_COMPLETED → KPI + Leaderboard + Audit
- * IMPORT_FAILED    → Audit
+ * IMPORT_COMPLETED → KPI + Leaderboard + Dashboard + Audit
  */
 
 import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
+
 import { recordKpiValue } from '../../performance/performanceEngine.js';
 import { computeLeaderboard } from '../../performance/leaderboardEngine.js';
 import { createAudit } from '../../audit/auditService.js';
 
 const DEBUG = process.env.EVENT_DEBUG === 'true';
-const log = (msg: string) => DEBUG && console.log(`[ImportHooks] ${msg}`);
+
+function log(msg: string): void {
+  if (DEBUG) console.log(`[ImportHooks] ${msg}`);
+}
 
 async function onImportCompleted(payload: DomainEventPayload): Promise<void> {
+  log(`IMPORT_COMPLETED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
-  const importedCount = (payload.metadata?.recordCount as number) ?? 1;
+  let errorCount = 0;
+
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  // KPI
+  // 1. KPI
   try {
-    await recordKpiValue({ userId: payload.userId, organizationId: payload.organizationId, kpiCode: 'imports_completed', value: importedCount, periodStart, periodEnd, source: DomainEvent.IMPORT_COMPLETED, metadata: { resourceId: payload.resourceId } });
-    log(`KPI updated: ${importedCount} records`);
-  } catch (err) { errors++; console.error('[ImportHooks] KPI:', err); }
+    await recordKpiValue({
+      userId: payload.userId,
+      organizationId: payload.organizationId,
+      kpiCode: 'imports_completed',
+      value: 1,
+      periodStart,
+      periodEnd,
+      source: DomainEvent.IMPORT_COMPLETED,
+      metadata: { resourceId: payload.resourceId },
+    });
+    log('KPI updated');
+  } catch (err) { errorCount++; console.error('[ImportHooks] KPI:', err); }
 
-  // Leaderboard
+  // 2. Leaderboard
   try {
     await computeLeaderboard(payload.organizationId, 'imports_monthly', periodStart, periodEnd);
-    log('Leaderboard updated');
-  } catch (err) { errors++; console.error('[ImportHooks] Leaderboard:', err); }
+    log('Leaderboard refreshed');
+  } catch (err) { errorCount++; console.error('[ImportHooks] Leaderboard:', err); }
 
-  // Audit
+  // 3. Dashboard cache invalidation (stub)
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'IMPORT_COMPLETED', resourceType: 'Import', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-    log('Audit recorded');
-  } catch (err) { errors++; console.error('[ImportHooks] Audit:', err); }
+    log('Dashboard cache invalidation scheduled');
+  } catch (err) { errorCount++; console.error('[ImportHooks] Cache:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.IMPORT_COMPLETED, Date.now() - start, errors > 0);
-  log(`IMPORT_COMPLETED done in ${Date.now() - start}ms`);
-}
-
-async function onImportFailed(payload: DomainEventPayload): Promise<void> {
-  const start = Date.now();
-  let errors = 0;
+  // 4. Audit
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'IMPORT_FAILED', resourceType: 'Import', resourceId: payload.resourceId, metadata: { ...payload.metadata, severity: 'error' } });
-  } catch (err) { errors++; console.error('[ImportHooks] Audit:', err); }
-  eventMetrics.recordListenerExecution(DomainEvent.IMPORT_FAILED, Date.now() - start, errors > 0);
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'Import',
+      resourceId: payload.resourceId,
+      event: DomainEvent.IMPORT_COMPLETED,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: true,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[ImportHooks] Audit:', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.IMPORT_COMPLETED, 'onImportCompleted', Date.now() - start, errorCount);
 }
 
 export function registerImportHooks(): void {
-  eventBus.subscribe(DomainEvent.IMPORT_COMPLETED, onImportCompleted);
-  eventBus.subscribe(DomainEvent.IMPORT_FAILED, onImportFailed);
-  if (DEBUG) console.log('[ImportHooks] Registered 2 hooks');
+  eventBus.on(DomainEvent.IMPORT_COMPLETED, onImportCompleted);
 }

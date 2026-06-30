@@ -2,7 +2,7 @@
  * events/hooks/loginHooks.ts — Login/Session Domain Hooks
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * LOGIN_SUCCESS → Daily login XP + Streak + Leaderboard
+ * LOGIN_SUCCESS → Daily login XP + Streak Leaderboard
  * LOGIN_FAILED  → Audit
  */
 
@@ -16,12 +16,14 @@ import { createAudit } from '../../audit/auditService.js';
 const DEBUG = process.env.EVENT_DEBUG === 'true';
 const log = (msg: string) => DEBUG && console.log(`[LoginHooks] ${msg}`);
 
-// Daily login XP amount (configurable via settings in future)
 const DAILY_LOGIN_XP = 5;
 
 async function onLoginSuccess(payload: DomainEventPayload): Promise<void> {
   const start = Date.now();
   let errors = 0;
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   // Daily Login XP
   try {
@@ -34,16 +36,16 @@ async function onLoginSuccess(payload: DomainEventPayload): Promise<void> {
       sourceResourceId: payload.resourceId,
     });
     log(`Daily login XP granted: ${DAILY_LOGIN_XP}`);
-  } catch (err) { errors++; console.error('[LoginHooks] XP error:', err); }
+  } catch (err) { errors++; console.error('[LoginHooks] XP:', err); }
 
-  // Streak — update leaderboard (streak KPI)
+  // Streak leaderboard
   try {
-    await computeLeaderboard(payload.organizationId, 'login_streak', 'monthly');
+    await computeLeaderboard(payload.organizationId, 'login_streak_monthly', periodStart, periodEnd);
     log('Streak leaderboard updated');
-  } catch (err) { errors++; console.error('[LoginHooks] Leaderboard error:', err); }
+  } catch (err) { errors++; console.error('[LoginHooks] Leaderboard:', err); }
 
   eventMetrics.recordListenerExecution(DomainEvent.LOGIN_SUCCESS, Date.now() - start, errors > 0);
-  log(`LOGIN_SUCCESS processed in ${Date.now() - start}ms`);
+  log(`LOGIN_SUCCESS done in ${Date.now() - start}ms`);
 }
 
 async function onLoginFailed(payload: DomainEventPayload): Promise<void> {
@@ -51,7 +53,7 @@ async function onLoginFailed(payload: DomainEventPayload): Promise<void> {
   let errors = 0;
   try {
     await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'LOGIN_FAILED', resourceType: 'Session', resourceId: payload.resourceId, metadata: { ...payload.metadata, severity: 'warning' } });
-  } catch (err) { errors++; console.error('[LoginHooks] Audit error:', err); }
+  } catch (err) { errors++; console.error('[LoginHooks] Audit:', err); }
   eventMetrics.recordListenerExecution(DomainEvent.LOGIN_FAILED, Date.now() - start, errors > 0);
 }
 

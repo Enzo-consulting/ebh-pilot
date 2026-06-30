@@ -3,10 +3,6 @@
  * Ticket 022 — Integration Engine & Domain Hooks
  *
  * USER_LEVEL_UP → Leaderboard + Audit
- * 
- * NOTE: Activity feed is populated automatically via UserLevelHistory table
- * when promotionService.checkAndPromote() runs (before this event is emitted).
- * activityFeedService is READ-ONLY — no addActivityFeedEntry function exists.
  */
 
 import { eventBus } from '../index.js';
@@ -21,14 +17,17 @@ const log = (msg: string) => DEBUG && console.log(`[LevelHooks] ${msg}`);
 async function onUserLevelUp(payload: DomainEventPayload): Promise<void> {
   const start = Date.now();
   let errors = 0;
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), 0, 1); // Start of year (all-time ~ yearly)
+  const periodEnd = new Date(now.getFullYear() + 1, 0, 0); // End of year
 
   // Leaderboard — update user level rankings
   try {
-    await computeLeaderboard(payload.organizationId, 'user_level', 'alltime');
+    await computeLeaderboard(payload.organizationId, 'user_levels_alltime', periodStart, periodEnd);
     log('Leaderboard updated');
   } catch (err) {
     errors++;
-    console.error('[LevelHooks] Leaderboard error:', err);
+    console.error('[LevelHooks] Leaderboard:', err);
   }
 
   // Audit — record level promotion
@@ -41,17 +40,16 @@ async function onUserLevelUp(payload: DomainEventPayload): Promise<void> {
       resourceId: payload.resourceId,
       metadata: payload.metadata ?? {},
     });
-    log(`Audit recorded: level up to ${(payload.metadata?.newLevel as number) ?? '?'}`);
+    log(`Audit: level up to ${(payload.metadata?.newLevel as number) ?? '?'}`);
   } catch (err) {
     errors++;
-    console.error('[LevelHooks] Audit error:', err);
+    console.error('[LevelHooks] Audit:', err);
   }
 
-  // Notification stub
   log(`Level up notification stub: user=${payload.userId} newLevel=${(payload.metadata?.newLevel as number) ?? '?'}`);
 
   eventMetrics.recordListenerExecution(DomainEvent.USER_LEVEL_UP, Date.now() - start, errors > 0);
-  log(`USER_LEVEL_UP processed in ${Date.now() - start}ms`);
+  log(`USER_LEVEL_UP done in ${Date.now() - start}ms`);
 }
 
 export function registerLevelHooks(): void {

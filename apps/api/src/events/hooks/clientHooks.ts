@@ -21,37 +21,40 @@ const log = (msg: string) => DEBUG && console.log(`[ClientHooks] ${msg}`);
 async function onClientCreated(payload: DomainEventPayload): Promise<void> {
   const start = Date.now();
   let errors = 0;
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
   // KPI
   try {
-    await recordKpiValue({ organizationId: payload.organizationId, userId: payload.userId, kpiCode: 'clients_created', value: 1, period: 'daily', sourceEvent: DomainEvent.CLIENT_CREATED, sourceResourceId: payload.resourceId });
+    await recordKpiValue({ userId: payload.userId, organizationId: payload.organizationId, kpiCode: 'clients_created', value: 1, periodStart, periodEnd, source: DomainEvent.CLIENT_CREATED, metadata: { resourceId: payload.resourceId } });
     log('KPI updated');
-  } catch (err) { errors++; console.error('[ClientHooks] KPI error:', err); }
+  } catch (err) { errors++; console.error('[ClientHooks] KPI:', err); }
 
   // XP
   try {
     const xp = await resolveXpAmount(payload.organizationId, XP_SETTING_KEYS.CLIENT_CREATED);
     await grantXp({ organizationId: payload.organizationId, userId: payload.userId, xp, sourceEvent: DomainEvent.CLIENT_CREATED, sourceResource: 'Client', sourceResourceId: payload.resourceId });
-    log(`XP granted: ${xp}`);
-  } catch (err) { errors++; console.error('[ClientHooks] XP error:', err); }
+    log(`XP: ${xp}`);
+  } catch (err) { errors++; console.error('[ClientHooks] XP:', err); }
 
   // Badges
   try {
     await evaluateBadges(payload.userId, payload.organizationId, 'clients_created', 1);
-  } catch (err) { errors++; console.error('[ClientHooks] Badge error:', err); }
+  } catch (err) { errors++; console.error('[ClientHooks] Badge:', err); }
 
   // Leaderboard
   try {
     await computeLeaderboard(payload.organizationId, 'clients_created', 'monthly');
-  } catch (err) { errors++; console.error('[ClientHooks] Leaderboard error:', err); }
+  } catch (err) { errors++; console.error('[ClientHooks] Leaderboard:', err); }
 
   // Audit
   try {
     await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'CLIENT_CREATED', resourceType: 'Client', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[ClientHooks] Audit error:', err); }
+  } catch (err) { errors++; console.error('[ClientHooks] Audit:', err); }
 
   eventMetrics.recordListenerExecution(DomainEvent.CLIENT_CREATED, Date.now() - start, errors > 0);
-  log(`CLIENT_CREATED processed in ${Date.now() - start}ms`);
+  log(`CLIENT_CREATED done in ${Date.now() - start}ms`);
 }
 
 async function onClientUpdated(payload: DomainEventPayload): Promise<void> {
@@ -59,7 +62,7 @@ async function onClientUpdated(payload: DomainEventPayload): Promise<void> {
   let errors = 0;
   try {
     await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'CLIENT_UPDATED', resourceType: 'Client', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[ClientHooks] Audit (update) error:', err); }
+  } catch (err) { errors++; console.error('[ClientHooks] Audit (update):', err); }
   eventMetrics.recordListenerExecution(DomainEvent.CLIENT_UPDATED, Date.now() - start, errors > 0);
 }
 

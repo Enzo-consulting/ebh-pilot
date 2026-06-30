@@ -1,44 +1,73 @@
 /**
  * events/hooks/userHooks.ts — User Domain Hooks
+ *
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * USER_CREATED → Audit (initialize user record)
+ * USER_CREATED → Audit
  * USER_UPDATED → Audit
  */
 
 import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
+
 import { createAudit } from '../../audit/auditService.js';
 
 const DEBUG = process.env.EVENT_DEBUG === 'true';
-const log = (msg: string) => DEBUG && console.log(`[UserHooks] ${msg}`);
+
+function log(msg: string): void {
+  if (DEBUG) console.log(`[UserHooks] ${msg}`);
+}
 
 async function onUserCreated(payload: DomainEventPayload): Promise<void> {
+  log(`USER_CREATED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
 
-  // Audit
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'USER_CREATED', resourceType: 'User', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-    log('Audit recorded');
-  } catch (err) { errors++; console.error('[UserHooks] Audit error:', err); }
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'User',
+      resourceId: payload.resourceId,
+      event: DomainEvent.USER_CREATED,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[UserHooks] Audit (created):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.USER_CREATED, Date.now() - start, errors > 0);
-  log(`USER_CREATED processed in ${Date.now() - start}ms`);
+  eventMetrics.recordListenerExecution(DomainEvent.USER_CREATED, 'onUserCreated', Date.now() - start, errorCount);
 }
 
 async function onUserUpdated(payload: DomainEventPayload): Promise<void> {
+  log(`USER_UPDATED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'USER_UPDATED', resourceType: 'User', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[UserHooks] Audit error:', err); }
-  eventMetrics.recordListenerExecution(DomainEvent.USER_UPDATED, Date.now() - start, errors > 0);
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'User',
+      resourceId: payload.resourceId,
+      event: DomainEvent.USER_UPDATED,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[UserHooks] Audit (updated):', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.USER_UPDATED, 'onUserUpdated', Date.now() - start, errorCount);
 }
 
 export function registerUserHooks(): void {
-  eventBus.subscribe(DomainEvent.USER_CREATED, onUserCreated);
-  eventBus.subscribe(DomainEvent.USER_UPDATED, onUserUpdated);
-  if (DEBUG) console.log('[UserHooks] Registered 2 hooks');
+  eventBus.on(DomainEvent.USER_CREATED, onUserCreated);
+  eventBus.on(DomainEvent.USER_UPDATED, onUserUpdated);
 }

@@ -131,17 +131,17 @@ enum DomainEventType {
   MODULE_ENABLED
   FEATURE_ENABLED
   // ── Performance & Progression (Ticket 020 / 021C) ───────────────────────
-  KPI_RECORDED = 'KPI_RECORDED',
-  BADGE_EARNED = 'BADGE_EARNED',
-  CHALLENGE_COMPLETED = 'CHALLENGE_COMPLETED',
-  GOAL_REACHED = 'GOAL_REACHED',
-  SEASON_STARTED = 'SEASON_STARTED',
-  SEASON_ENDED = 'SEASON_ENDED',
+  KPI_RECORDED
+  BADGE_EARNED
+  CHALLENGE_COMPLETED
+  GOAL_REACHED
+  SEASON_STARTED
+  SEASON_ENDED
   // ── Progression Engine (Ticket 021C) ─────────────────────────────────────
-  XP_GAINED = 'XP_GAINED',
-  XP_REMOVED = 'XP_REMOVED',
-  USER_LEVEL_UP = 'USER_LEVEL_UP',
-  USER_NEW_TITLE = 'USER_NEW_TITLE',
+  XP_GAINED
+  XP_REMOVED
+  USER_LEVEL_UP
+  USER_NEW_TITLE
 }
 
 // ============================================================

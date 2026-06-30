@@ -3,25 +3,15 @@
  *
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * Subscribes to prospect-related domain events and connects all engines.
- *
- * EVENTS:
- * - PROSPECT_CREATED → KPI + XP + Badges + Challenges + Leaderboard + Dashboard + Notification + Mobile + Audit
- * - PROSPECT_UPDATED → KPI + Audit
- * - PROSPECT_DELETED → Audit
- *
- * PHILOSOPHY:
- * - Each hook runs independently in a try/catch
- * - No hook can block others or throw to the caller
- * - Hooks are fire-and-forget (do not await chained results)
- * - Only the event payload is shared between engines
+ * PROSPECT_CREATED → KPI + XP + Badges + Leaderboard + Audit
+ * PROSPECT_UPDATED → Audit
+ * PROSPECT_DELETED → Audit
  */
 
 import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
 
-// Engines
 import { recordKpiValue } from '../../performance/performanceEngine.js';
 import { grantXp, resolveXpAmount, XP_SETTING_KEYS } from '../../progression/xpService.js';
 import { evaluateBadges } from '../../performance/badgeEngine.js';
@@ -39,64 +29,53 @@ function log(msg: string): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
-  log(`PROSPECT_CREATED received for org=${payload.organizationId} user=${payload.userId}`);
+  log(`PROSPECT_CREATED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
   let errorCount = 0;
 
-  // 1. KPI — update prospect count KPI
+  // 1. KPI
   try {
+    const now = new Date();
     await recordKpiValue({
-      organizationId: payload.organizationId,
       userId: payload.userId,
+      organizationId: payload.organizationId,
       kpiCode: 'prospects_created',
       value: 1,
-      period: 'daily',
-      sourceEvent: DomainEvent.PROSPECT_CREATED,
-      sourceResourceId: payload.resourceId,
+      periodStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      periodEnd: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1),
+      source: DomainEvent.PROSPECT_CREATED,
+      metadata: { resourceId: payload.resourceId },
     });
     log('KPI updated');
-  } catch (err) {
-    errorCount++;
-    console.error('[ProspectHooks] KPI error:', err);
-  }
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_CREATED + ':kpi', Date.now() - start, errorCount > 0);
+  } catch (err) { errorCount++; console.error('[ProspectHooks] KPI:', err); }
 
-  // 2. XP — grant XP for prospect creation
+  // 2. XP
   try {
-    const xpAmount = await resolveXpAmount(payload.organizationId, XP_SETTING_KEYS.PROSPECT_CREATED);
+    const xp = await resolveXpAmount(payload.organizationId, XP_SETTING_KEYS.PROSPECT_CREATED);
     await grantXp({
       organizationId: payload.organizationId,
       userId: payload.userId,
-      xp: xpAmount,
+      xp,
       sourceEvent: DomainEvent.PROSPECT_CREATED,
       sourceResource: 'Prospect',
       sourceResourceId: payload.resourceId,
     });
-    log(`XP granted: ${xpAmount}`);
-  } catch (err) {
-    errorCount++;
-    console.error('[ProspectHooks] XP error:', err);
-  }
+    log(`XP granted: ${xp}`);
+  } catch (err) { errorCount++; console.error('[ProspectHooks] XP:', err); }
 
-  // 3. Badges — evaluate badge conditions
+  // 3. Badges
   try {
     await evaluateBadges(payload.userId, payload.organizationId, 'prospects_created', 1);
     log('Badges evaluated');
-  } catch (err) {
-    errorCount++;
-    console.error('[ProspectHooks] Badge error:', err);
-  }
+  } catch (err) { errorCount++; console.error('[ProspectHooks] Badge:', err); }
 
-  // 4. Leaderboard — refresh rankings
+  // 4. Leaderboard
   try {
     await computeLeaderboard(payload.organizationId, 'prospects_created', 'monthly');
     log('Leaderboard refreshed');
-  } catch (err) {
-    errorCount++;
-    console.error('[ProspectHooks] Leaderboard error:', err);
-  }
+  } catch (err) { errorCount++; console.error('[ProspectHooks] Leaderboard:', err); }
 
-  // 5. Audit — immutable audit trail
+  // 5. Audit
   try {
     await createAudit({
       organizationId: payload.organizationId,
@@ -107,77 +86,31 @@ async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
       metadata: payload.metadata ?? {},
     });
     log('Audit recorded');
-  } catch (err) {
-    errorCount++;
-    console.error('[ProspectHooks] Audit error:', err);
-  }
+  } catch (err) { errorCount++; console.error('[ProspectHooks] Audit:', err); }
 
   const duration = Date.now() - start;
   eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_CREATED, duration, errorCount > 0);
-  log(`PROSPECT_CREATED processed in ${duration}ms, errors: ${errorCount}`);
+  log(`PROSPECT_CREATED done in ${duration}ms, errors: ${errorCount}`);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROSPECT_UPDATED
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function onProspectUpdated(payload: DomainEventPayload): Promise<void> {
-  log(`PROSPECT_UPDATED received for resource=${payload.resourceId}`);
   const start = Date.now();
-  let errorCount = 0;
-
-  // Audit
+  let errors = 0;
   try {
-    await createAudit({
-      organizationId: payload.organizationId,
-      userId: payload.userId,
-      action: 'PROSPECT_UPDATED',
-      resourceType: 'Prospect',
-      resourceId: payload.resourceId,
-      metadata: payload.metadata ?? {},
-    });
-  } catch (err) {
-    errorCount++;
-    console.error('[ProspectHooks] Audit (update) error:', err);
-  }
-
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_UPDATED, Date.now() - start, errorCount > 0);
+    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'PROSPECT_UPDATED', resourceType: 'Prospect', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
+  } catch (err) { errors++; console.error('[ProspectHooks] Audit (update):', err); }
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_UPDATED, Date.now() - start, errors > 0);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROSPECT_DELETED
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function onProspectDeleted(payload: DomainEventPayload): Promise<void> {
-  log(`PROSPECT_DELETED received for resource=${payload.resourceId}`);
   const start = Date.now();
-  let errorCount = 0;
-
+  let errors = 0;
   try {
-    await createAudit({
-      organizationId: payload.organizationId,
-      userId: payload.userId,
-      action: 'PROSPECT_DELETED',
-      resourceType: 'Prospect',
-      resourceId: payload.resourceId,
-      metadata: payload.metadata ?? {},
-    });
-  } catch (err) {
-    errorCount++;
-    console.error('[ProspectHooks] Audit (delete) error:', err);
-  }
-
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_DELETED, Date.now() - start, errorCount > 0);
+    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'PROSPECT_DELETED', resourceType: 'Prospect', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
+  } catch (err) { errors++; console.error('[ProspectHooks] Audit (delete):', err); }
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_DELETED, Date.now() - start, errors > 0);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REGISTER HOOKS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Register all prospect hooks on the event bus.
- * Called once at startup by hookRegistry.ts.
- */
 export function registerProspectHooks(): void {
   eventBus.subscribe(DomainEvent.PROSPECT_CREATED, onProspectCreated);
   eventBus.subscribe(DomainEvent.PROSPECT_UPDATED, onProspectUpdated);

@@ -80,6 +80,20 @@ export enum DomainEvent {
   // ── Module Engine (Ticket 016) ────────────────────────────────────────────
   MODULE_ENABLED = 'MODULE_ENABLED',
   FEATURE_ENABLED = 'FEATURE_ENABLED',
+
+  // ── Gamification (Ticket 022) ─────────────────────────────────────────────
+  /** A badge has been awarded to a user */
+  BADGE_EARNED = 'BADGE_EARNED',
+  /** A goal has been reached */
+  GOAL_REACHED = 'GOAL_REACHED',
+  /** A challenge has been completed */
+  CHALLENGE_COMPLETED = 'CHALLENGE_COMPLETED',
+  /** A challenge has been started */
+  CHALLENGE_STARTED = 'CHALLENGE_STARTED',
+  /** User has leveled up */
+  USER_LEVEL_UP = 'USER_LEVEL_UP',
+  /** KPI threshold reached */
+  KPI_THRESHOLD_REACHED = 'KPI_THRESHOLD_REACHED',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

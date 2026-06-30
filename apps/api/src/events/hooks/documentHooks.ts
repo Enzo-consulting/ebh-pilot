@@ -2,8 +2,8 @@
  * events/hooks/documentHooks.ts — Document Domain Hooks
  * Ticket 022 — Integration Engine & Domain Hooks
  *
- * DOCUMENT_SIGNED   → Audit + Notification + KPI
- * DOCUMENT_GENERATED → Audit + KPI
+ * DOCUMENT_SIGNED   → KPI + Audit
+ * DOCUMENT_GENERATED → KPI + Audit
  */
 
 import { eventBus } from '../index.js';
@@ -18,36 +18,37 @@ const log = (msg: string) => DEBUG && console.log(`[DocumentHooks] ${msg}`);
 async function onDocumentSigned(payload: DomainEventPayload): Promise<void> {
   const start = Date.now();
   let errors = 0;
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-  // KPI
   try {
-    await recordKpiValue({ organizationId: payload.organizationId, userId: payload.userId, kpiCode: 'documents_signed', value: 1, period: 'daily', sourceEvent: DomainEvent.DOCUMENT_SIGNED, sourceResourceId: payload.resourceId });
+    await recordKpiValue({ userId: payload.userId, organizationId: payload.organizationId, kpiCode: 'documents_signed', value: 1, periodStart, periodEnd, source: DomainEvent.DOCUMENT_SIGNED, metadata: { resourceId: payload.resourceId } });
     log('KPI updated');
-  } catch (err) { errors++; console.error('[DocumentHooks] KPI error:', err); }
+  } catch (err) { errors++; console.error('[DocumentHooks] KPI:', err); }
 
-  // Audit
   try {
     await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'DOCUMENT_SIGNED', resourceType: 'Document', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
     log('Audit recorded');
-  } catch (err) { errors++; console.error('[DocumentHooks] Audit error:', err); }
+  } catch (err) { errors++; console.error('[DocumentHooks] Audit:', err); }
 
   eventMetrics.recordListenerExecution(DomainEvent.DOCUMENT_SIGNED, Date.now() - start, errors > 0);
-  log(`DOCUMENT_SIGNED processed in ${Date.now() - start}ms`);
 }
 
 async function onDocumentGenerated(payload: DomainEventPayload): Promise<void> {
   const start = Date.now();
   let errors = 0;
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-  // KPI
   try {
-    await recordKpiValue({ organizationId: payload.organizationId, userId: payload.userId, kpiCode: 'documents_generated', value: 1, period: 'daily', sourceEvent: DomainEvent.DOCUMENT_GENERATED, sourceResourceId: payload.resourceId });
-  } catch (err) { errors++; console.error('[DocumentHooks] KPI error:', err); }
+    await recordKpiValue({ userId: payload.userId, organizationId: payload.organizationId, kpiCode: 'documents_generated', value: 1, periodStart, periodEnd, source: DomainEvent.DOCUMENT_GENERATED, metadata: { resourceId: payload.resourceId } });
+  } catch (err) { errors++; console.error('[DocumentHooks] KPI:', err); }
 
-  // Audit
   try {
     await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'DOCUMENT_GENERATED', resourceType: 'Document', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[DocumentHooks] Audit error:', err); }
+  } catch (err) { errors++; console.error('[DocumentHooks] Audit:', err); }
 
   eventMetrics.recordListenerExecution(DomainEvent.DOCUMENT_GENERATED, Date.now() - start, errors > 0);
 }

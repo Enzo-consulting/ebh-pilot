@@ -30,8 +30,8 @@ async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
   let errorCount = 0;
 
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1); // Start of month
-  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of month
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   // 1. KPI
   try {
@@ -59,16 +59,16 @@ async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
       sourceResource: 'Prospect',
       sourceResourceId: payload.resourceId,
     });
-    log(`XP granted: ${xp}`);
+    log('XP granted');
   } catch (err) { errorCount++; console.error('[ProspectHooks] XP:', err); }
 
   // 3. Badges
   try {
     await evaluateBadges(payload.userId, payload.organizationId, 'prospects_created', 1);
     log('Badges evaluated');
-  } catch (err) { errorCount++; console.error('[ProspectHooks] Badge:', err); }
+  } catch (err) { errorCount++; console.error('[ProspectHooks] Badges:', err); }
 
-  // 4. Leaderboard — recompute monthly leaderboard for prospects
+  // 4. Leaderboard
   try {
     await computeLeaderboard(payload.organizationId, 'prospects_monthly', periodStart, periodEnd);
     log('Leaderboard refreshed');
@@ -77,42 +77,73 @@ async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
   // 5. Audit
   try {
     await createAudit({
+      eventId: payload.eventId,
       organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
       userId: payload.userId,
-      action: 'PROSPECT_CREATED',
       resourceType: 'Prospect',
       resourceId: payload.resourceId,
+      event: DomainEvent.PROSPECT_CREATED,
+      occurredAt: new Date(payload.timestamp),
       metadata: payload.metadata ?? {},
+      isSystemEvent: false,
     });
-    log('Audit recorded');
+    log('Audit created');
   } catch (err) { errorCount++; console.error('[ProspectHooks] Audit:', err); }
 
-  const duration = Date.now() - start;
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_CREATED, duration, errorCount > 0);
-  log(`PROSPECT_CREATED done in ${duration}ms, errors: ${errorCount}`);
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_CREATED, 'onProspectCreated', Date.now() - start, errorCount);
 }
 
 async function onProspectUpdated(payload: DomainEventPayload): Promise<void> {
+  log(`PROSPECT_UPDATED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'PROSPECT_UPDATED', resourceType: 'Prospect', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[ProspectHooks] Audit (update):', err); }
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_UPDATED, Date.now() - start, errors > 0);
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'Prospect',
+      resourceId: payload.resourceId,
+      event: DomainEvent.PROSPECT_UPDATED,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[ProspectHooks] Audit (update):', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_UPDATED, 'onProspectUpdated', Date.now() - start, errorCount);
 }
 
 async function onProspectDeleted(payload: DomainEventPayload): Promise<void> {
+  log(`PROSPECT_DELETED org=${payload.organizationId} user=${payload.userId}`);
   const start = Date.now();
-  let errors = 0;
+  let errorCount = 0;
+
   try {
-    await createAudit({ organizationId: payload.organizationId, userId: payload.userId, action: 'PROSPECT_DELETED', resourceType: 'Prospect', resourceId: payload.resourceId, metadata: payload.metadata ?? {} });
-  } catch (err) { errors++; console.error('[ProspectHooks] Audit (delete):', err); }
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_DELETED, Date.now() - start, errors > 0);
+    await createAudit({
+      eventId: payload.eventId,
+      organizationId: payload.organizationId,
+      businessUnitId: payload.businessUnitId,
+      userId: payload.userId,
+      resourceType: 'Prospect',
+      resourceId: payload.resourceId,
+      event: DomainEvent.PROSPECT_DELETED,
+      occurredAt: new Date(payload.timestamp),
+      metadata: payload.metadata ?? {},
+      isSystemEvent: false,
+    });
+    log('Audit created');
+  } catch (err) { errorCount++; console.error('[ProspectHooks] Audit (delete):', err); }
+
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_DELETED, 'onProspectDeleted', Date.now() - start, errorCount);
 }
 
 export function registerProspectHooks(): void {
-  eventBus.subscribe(DomainEvent.PROSPECT_CREATED, onProspectCreated);
-  eventBus.subscribe(DomainEvent.PROSPECT_UPDATED, onProspectUpdated);
-  eventBus.subscribe(DomainEvent.PROSPECT_DELETED, onProspectDeleted);
-  if (DEBUG) console.log('[ProspectHooks] Registered 3 hooks');
+  eventBus.on(DomainEvent.PROSPECT_CREATED, onProspectCreated);
+  eventBus.on(DomainEvent.PROSPECT_UPDATED, onProspectUpdated);
+  eventBus.on(DomainEvent.PROSPECT_DELETED, onProspectDeleted);
 }

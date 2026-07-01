@@ -46,7 +46,7 @@ async function onUserLevelUp(payload: DomainEventPayload): Promise<void> {
       resourceType: 'UserLevel',
       resourceId: payload.resourceId ?? payload.userId,
       event: DomainEvent.USER_LEVEL_UP,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
@@ -63,9 +63,9 @@ async function onUserLevelUp(payload: DomainEventPayload): Promise<void> {
     log('Coach IA notification stub — USER_LEVEL_UP');
   } catch (err) { errorCount++; console.error('[LevelHooks] CoachIA:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.USER_LEVEL_UP, 'onUserLevelUp', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.USER_LEVEL_UP, Date.now() - start, errorCount > 0);
 }
 
 export function registerLevelHooks(): void {
-  eventBus.on(DomainEvent.USER_LEVEL_UP, onUserLevelUp);
+  eventBus.subscribe(DomainEvent.USER_LEVEL_UP, onUserLevelUp);
 }

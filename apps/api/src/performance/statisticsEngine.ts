@@ -27,7 +27,7 @@
  * - Custom period comparison (any start/end)
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 import type {
   StatisticsResult,
   TrendResult,

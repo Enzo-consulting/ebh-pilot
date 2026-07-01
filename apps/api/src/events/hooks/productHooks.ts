@@ -54,14 +54,14 @@ async function onProductCreated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Product',
       resourceId: payload.resourceId,
       event: DomainEvent.PRODUCT_CREATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ProductHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.PRODUCT_CREATED, 'onProductCreated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.PRODUCT_CREATED, Date.now() - start, errorCount > 0);
 }
 
 async function onProductUpdated(payload: DomainEventPayload): Promise<void> {
@@ -78,17 +78,17 @@ async function onProductUpdated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Product',
       resourceId: payload.resourceId,
       event: DomainEvent.PRODUCT_UPDATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ProductHooks] Audit (update):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.PRODUCT_UPDATED, 'onProductUpdated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.PRODUCT_UPDATED, Date.now() - start, errorCount > 0);
 }
 
 export function registerProductHooks(): void {
-  eventBus.on(DomainEvent.PRODUCT_CREATED, onProductCreated);
-  eventBus.on(DomainEvent.PRODUCT_UPDATED, onProductUpdated);
+  eventBus.subscribe(DomainEvent.PRODUCT_CREATED, onProductCreated);
+  eventBus.subscribe(DomainEvent.PRODUCT_UPDATED, onProductUpdated);
 }

@@ -34,7 +34,7 @@
  *   All badge queries are scoped to organizationId
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 import type { BadgeEvaluationResult } from './performanceEngine.js';
 
 /**

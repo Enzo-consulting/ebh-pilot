@@ -34,7 +34,7 @@
  *   - Private leagues
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 import type {
   LeaderboardResult,
   LeaderboardEntryResult,

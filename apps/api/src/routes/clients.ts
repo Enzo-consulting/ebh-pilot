@@ -97,7 +97,7 @@ clientsRouter.put('/:id', async (req: AuthedRequestWithUser, res) => {
       try {
               const existing = await prisma.prospect.findUnique({
                         where: { id: req.params.id },
-                        select: { id: true, ownerId: true, purchasePrice: true, sellingPrice: true,
+                        select: { id: true, ownerId: true, sellingPrice: true,
                                          transportCost: true, preparationCost: true, accessoriesCost: true, otherCosts: true },
               });
               if (!existing) {

@@ -36,7 +36,7 @@ async function onBadgeEarned(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Badge',
       resourceId: payload.resourceId,
       event: DomainEvent.BADGE_EARNED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
@@ -49,9 +49,9 @@ async function onBadgeEarned(payload: DomainEventPayload): Promise<void> {
     log('Dashboard cache invalidation scheduled');
   } catch (err) { errorCount++; console.error('[BadgeHooks] Cache:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.BADGE_EARNED, 'onBadgeEarned', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.BADGE_EARNED, Date.now() - start, errorCount > 0);
 }
 
 export function registerBadgeHooks(): void {
-  eventBus.on(DomainEvent.BADGE_EARNED, onBadgeEarned);
+  eventBus.subscribe(DomainEvent.BADGE_EARNED, onBadgeEarned);
 }

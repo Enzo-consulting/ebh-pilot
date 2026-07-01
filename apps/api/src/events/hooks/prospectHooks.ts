@@ -84,14 +84,14 @@ async function onProspectCreated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Prospect',
       resourceId: payload.resourceId,
       event: DomainEvent.PROSPECT_CREATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ProspectHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_CREATED, 'onProspectCreated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_CREATED, Date.now() - start, errorCount > 0);
 }
 
 async function onProspectUpdated(payload: DomainEventPayload): Promise<void> {
@@ -108,14 +108,14 @@ async function onProspectUpdated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Prospect',
       resourceId: payload.resourceId,
       event: DomainEvent.PROSPECT_UPDATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ProspectHooks] Audit (update):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_UPDATED, 'onProspectUpdated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_UPDATED, Date.now() - start, errorCount > 0);
 }
 
 async function onProspectDeleted(payload: DomainEventPayload): Promise<void> {
@@ -132,18 +132,18 @@ async function onProspectDeleted(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Prospect',
       resourceId: payload.resourceId,
       event: DomainEvent.PROSPECT_DELETED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ProspectHooks] Audit (delete):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_DELETED, 'onProspectDeleted', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.PROSPECT_DELETED, Date.now() - start, errorCount > 0);
 }
 
 export function registerProspectHooks(): void {
-  eventBus.on(DomainEvent.PROSPECT_CREATED, onProspectCreated);
-  eventBus.on(DomainEvent.PROSPECT_UPDATED, onProspectUpdated);
-  eventBus.on(DomainEvent.PROSPECT_DELETED, onProspectDeleted);
+  eventBus.subscribe(DomainEvent.PROSPECT_CREATED, onProspectCreated);
+  eventBus.subscribe(DomainEvent.PROSPECT_UPDATED, onProspectUpdated);
+  eventBus.subscribe(DomainEvent.PROSPECT_DELETED, onProspectDeleted);
 }

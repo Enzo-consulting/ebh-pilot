@@ -33,14 +33,14 @@ async function onUserCreated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'User',
       resourceId: payload.resourceId,
       event: DomainEvent.USER_CREATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[UserHooks] Audit (created):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.USER_CREATED, 'onUserCreated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.USER_CREATED, Date.now() - start, errorCount > 0);
 }
 
 async function onUserUpdated(payload: DomainEventPayload): Promise<void> {
@@ -57,17 +57,17 @@ async function onUserUpdated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'User',
       resourceId: payload.resourceId,
       event: DomainEvent.USER_UPDATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[UserHooks] Audit (updated):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.USER_UPDATED, 'onUserUpdated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.USER_UPDATED, Date.now() - start, errorCount > 0);
 }
 
 export function registerUserHooks(): void {
-  eventBus.on(DomainEvent.USER_CREATED, onUserCreated);
-  eventBus.on(DomainEvent.USER_UPDATED, onUserUpdated);
+  eventBus.subscribe(DomainEvent.USER_CREATED, onUserCreated);
+  eventBus.subscribe(DomainEvent.USER_UPDATED, onUserUpdated);
 }

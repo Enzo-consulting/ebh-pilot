@@ -251,7 +251,7 @@ export async function getManagerDashboard(params: GetDashboardParams): Promise<M
       where: {
         userId: { in: teamIds },
         kpiId: primaryKpi.id,
-        recordedAt: { gte: startOfMonth },
+        calculatedAt: { gte: startOfMonth },
       },
       orderBy: { value: 'desc' },
       select: { userId: true, value: true },
@@ -317,7 +317,7 @@ export async function getExecutiveDashboard(params: GetDashboardParams): Promise
   const orgKpis: ExecutiveDashboardDto['organizationKpis'] = [];
   for (const kpi of kpiDefs) {
     const values = await prisma.userKpiValue.findMany({
-      where: { kpiId: kpi.id, recordedAt: { gte: startOfMonth } },
+      where: { kpiId: kpi.id, calculatedAt: { gte: startOfMonth } },
       select: { userId: true, value: true, user: { select: { name: true } } },
     });
 
@@ -336,7 +336,7 @@ export async function getExecutiveDashboard(params: GetDashboardParams): Promise
       averageValue,
       topPerformer: {
         userId: max.userId,
-        userName: max.user.name ?? null,
+        userName: null,
         value: Number(max.value),
       },
     });
@@ -376,8 +376,8 @@ export async function getRealtimeSnapshot(
     }),
     prisma.leaderboardEntry.findFirst({
       where: { userId },
-      orderBy: { rank: 'asc' },
-      select: { rank: true },
+      orderBy: { position: 'asc' },
+      select: { position: true },
     }),
     prisma.xpTransaction.count({
       where: { userId, organizationId, sourceEvent: 'DAILY_LOGIN' },
@@ -407,7 +407,7 @@ export async function getRealtimeSnapshot(
       current: userExp?.currentLevel ?? 1,
       title: levelDef?.title ?? `Niveau ${userExp?.currentLevel ?? 1}`,
     },
-    rank: { current: bestRank?.rank ?? null, delta: null },
+    rank: { current: bestRank?.position ?? null, delta: null },
     streak: { current: streak },
     unreadNotifications: unread,
     pendingGoals,

@@ -22,7 +22,7 @@
  * - Anonymous mode: can return positions without names
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 import type { RankingResult, UserRankResult } from './performanceEngine.js';
 
 /**

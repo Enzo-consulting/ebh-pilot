@@ -31,6 +31,8 @@
  */
 
 import { DomainEventPayload } from '../types.js';
+import { createAudit } from '../../audit/index.js';
+export type { DomainEventPayload };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTIFICATION LISTENER
@@ -90,23 +92,6 @@ export async function NotificationListener(payload: DomainEventPayload): Promise
  * - Business Unit: include businessUnitId when available (Ticket 014B)
  * - Module: REPORTING feature required for audit export (Ticket 016)
  */
-export async function AuditListener(payload: DomainEventPayload): Promise<void> {
-  // TODO: implement audit log writing
-  // Example future implementation:
- * listeners/index.ts — Skeleton Listeners
- *
- * Ticket 017 — Core Event Bus & Domain Events
- * Ticket 018 — Audit Engine (AuditListener updated)
- *
- * UPDATED IN TICKET 018:
- * AuditListener now calls createAudit() from the Audit Engine.
- * It maps DomainEventPayload to CreateAuditInput and persists an AuditEvent.
- * All other listeners remain as skeletons (Promise.resolve()).
- */
-
-import { DomainEventPayload } from '../types.js';
-import { createAudit } from '../../audit/index.js';
-
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTIFICATION LISTENER
 // ─────────────────────────────────────────────────────────────────────────────

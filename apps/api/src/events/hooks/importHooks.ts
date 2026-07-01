@@ -65,16 +65,16 @@ async function onImportCompleted(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Import',
       resourceId: payload.resourceId,
       event: DomainEvent.IMPORT_COMPLETED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: true,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ImportHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.IMPORT_COMPLETED, 'onImportCompleted', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.IMPORT_COMPLETED, Date.now() - start, errorCount > 0);
 }
 
 export function registerImportHooks(): void {
-  eventBus.on(DomainEvent.IMPORT_COMPLETED, onImportCompleted);
+  eventBus.subscribe(DomainEvent.IMPORT_COMPLETED, onImportCompleted);
 }

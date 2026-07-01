@@ -94,6 +94,10 @@ export enum DomainEvent {
   USER_LEVEL_UP = 'USER_LEVEL_UP',
   /** KPI threshold reached */
   KPI_THRESHOLD_REACHED = 'KPI_THRESHOLD_REACHED',
+  /** XP gained by a user */
+  XP_GAINED = 'XP_GAINED',
+  /** XP removed from a user */
+  XP_REMOVED = 'XP_REMOVED',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

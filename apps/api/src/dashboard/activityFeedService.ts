@@ -217,7 +217,6 @@ async function fetchLevelPromotions(
     where: {
       organizationId,
       userId,
-      promoted: undefined, // promoted field doesn't exist — we check newLevel > oldLevel
       ...(beforeDate && { promotedAt: { lt: beforeDate } }),
     },
     orderBy: { promotedAt: 'desc' },

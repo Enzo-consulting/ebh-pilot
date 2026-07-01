@@ -26,7 +26,7 @@
  * - Goal comparison between team members
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 import type { GoalResult, GoalProgressResult } from './performanceEngine.js';
 
 /**

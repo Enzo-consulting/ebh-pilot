@@ -83,14 +83,14 @@ async function onClientCreated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Client',
       resourceId: payload.resourceId,
       event: DomainEvent.CLIENT_CREATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ClientHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_CREATED, 'onClientCreated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_CREATED, Date.now() - start, errorCount > 0);
 }
 
 async function onClientUpdated(payload: DomainEventPayload): Promise<void> {
@@ -107,17 +107,17 @@ async function onClientUpdated(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Client',
       resourceId: payload.resourceId,
       event: DomainEvent.CLIENT_UPDATED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ClientHooks] Audit (update):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_UPDATED, 'onClientUpdated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.CLIENT_UPDATED, Date.now() - start, errorCount > 0);
 }
 
 export function registerClientHooks(): void {
-  eventBus.on(DomainEvent.CLIENT_CREATED, onClientCreated);
-  eventBus.on(DomainEvent.CLIENT_UPDATED, onClientUpdated);
+  eventBus.subscribe(DomainEvent.CLIENT_CREATED, onClientCreated);
+  eventBus.subscribe(DomainEvent.CLIENT_UPDATED, onClientUpdated);
 }

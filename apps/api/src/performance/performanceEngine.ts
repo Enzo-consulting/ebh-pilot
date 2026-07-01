@@ -30,7 +30,7 @@
  *   IMPORT_COMPLETED → recordKpiValue({ kpiCode: 'imports_done', value: 1 })
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES

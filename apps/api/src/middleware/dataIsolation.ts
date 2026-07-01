@@ -299,7 +299,7 @@ export async function injectAuthUser(
        if (user) {
                 req.authUser = {
                            id: user.id,
-                           authId: user.authId,
+                           authId: user.authId ?? '',
                            role: (user.role as UserRole) ?? 'SALES_REP',
                            organizationId: user.organizationId,
                            businessUnitId: user.businessUnitId,

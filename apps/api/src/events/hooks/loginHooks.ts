@@ -11,7 +11,7 @@ import { eventBus } from '../index.js';
 import { DomainEvent, DomainEventPayload } from '../types.js';
 import { eventMetrics } from '../eventMetrics.js';
 
-import { grantXp, resolveXpAmount, XP_SETTING_KEYS } from '../../progression/xpService.js';
+import { grantXp, resolveXpAmount, XP_SETTING_KEYS, XP_SOURCE_EVENTS } from '../../progression/xpService.js';
 import { computeLeaderboard } from '../../performance/leaderboardEngine.js';
 import { createAudit } from '../../audit/auditService.js';
 
@@ -32,12 +32,12 @@ async function onLoginSuccess(payload: DomainEventPayload): Promise<void> {
 
   // 1. Daily Login XP
   try {
-    const xp = await resolveXpAmount(payload.organizationId, XP_SETTING_KEYS.LOGIN_SUCCESS);
+    const xp = await resolveXpAmount(payload.organizationId, XP_SETTING_KEYS.DAILY_LOGIN);
     await grantXp({
       organizationId: payload.organizationId,
       userId: payload.userId,
       xp,
-      sourceEvent: DomainEvent.LOGIN_SUCCESS,
+      sourceEvent: XP_SOURCE_EVENTS.DAILY_LOGIN,
       sourceResource: 'Login',
       sourceResourceId: payload.resourceId ?? payload.userId,
     });
@@ -60,14 +60,14 @@ async function onLoginSuccess(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Session',
       resourceId: payload.resourceId ?? payload.userId,
       event: DomainEvent.LOGIN_SUCCESS,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[LoginHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_SUCCESS, 'onLoginSuccess', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_SUCCESS, Date.now() - start, errorCount > 0);
 }
 
 async function onLoginFailure(payload: DomainEventPayload): Promise<void> {
@@ -83,18 +83,18 @@ async function onLoginFailure(payload: DomainEventPayload): Promise<void> {
       userId: payload.userId,
       resourceType: 'Session',
       resourceId: payload.resourceId ?? payload.userId ?? 'unknown',
-      event: DomainEvent.LOGIN_FAILURE,
-      occurredAt: new Date(payload.timestamp),
+      event: DomainEvent.LOGIN_FAILED,
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[LoginHooks] Audit (failure):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_FAILURE, 'onLoginFailure', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.LOGIN_FAILED, Date.now() - start, errorCount > 0);
 }
 
 export function registerLoginHooks(): void {
-  eventBus.on(DomainEvent.LOGIN_SUCCESS, onLoginSuccess);
-  eventBus.on(DomainEvent.LOGIN_FAILURE, onLoginFailure);
+  eventBus.subscribe(DomainEvent.LOGIN_SUCCESS, onLoginSuccess);
+  eventBus.subscribe(DomainEvent.LOGIN_FAILED, onLoginFailure);
 }

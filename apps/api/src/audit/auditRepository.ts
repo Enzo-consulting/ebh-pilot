@@ -15,7 +15,7 @@
  * These constraints mirror a read-only replica for audit data in production.
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 import {
   CreateAuditInput,
   AuditSearchFilters,

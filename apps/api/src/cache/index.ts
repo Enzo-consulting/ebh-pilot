@@ -17,7 +17,7 @@
                 * No hook, engine, or service needs to change.
                  */
 
-                 export { ICache, CacheEntry, CacheOptions, CacheNamespace } from './types.js';
+                 export type { ICache, CacheEntry, CacheOptions, CacheNamespace } from './types.js';
                  export { MemoryCache } from './memoryCache.js';
                  export { RedisCache } from './redisCache.js';
                  export { CacheFactory, dashboardCache, leaderboardCache, settingsCache, levelsCache, brandingCache } from './cacheFactory.js';

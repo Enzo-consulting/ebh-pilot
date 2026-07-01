@@ -56,14 +56,14 @@ async function onChallengeCompleted(payload: DomainEventPayload): Promise<void> 
       resourceType: 'Challenge',
       resourceId: payload.resourceId,
       event: DomainEvent.CHALLENGE_COMPLETED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ChallengeHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.CHALLENGE_COMPLETED, 'onChallengeCompleted', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.CHALLENGE_COMPLETED, Date.now() - start, errorCount > 0);
 }
 
 async function onChallengeStarted(payload: DomainEventPayload): Promise<void> {
@@ -80,17 +80,17 @@ async function onChallengeStarted(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Challenge',
       resourceId: payload.resourceId,
       event: DomainEvent.CHALLENGE_STARTED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[ChallengeHooks] Audit (started):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.CHALLENGE_STARTED, 'onChallengeStarted', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.CHALLENGE_STARTED, Date.now() - start, errorCount > 0);
 }
 
 export function registerChallengeHooks(): void {
-  eventBus.on(DomainEvent.CHALLENGE_COMPLETED, onChallengeCompleted);
-  eventBus.on(DomainEvent.CHALLENGE_STARTED, onChallengeStarted);
+  eventBus.subscribe(DomainEvent.CHALLENGE_COMPLETED, onChallengeCompleted);
+  eventBus.subscribe(DomainEvent.CHALLENGE_STARTED, onChallengeStarted);
 }

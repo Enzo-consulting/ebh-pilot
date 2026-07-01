@@ -57,7 +57,7 @@ export type { DomainEventPayload };
  * - White label: use branding.supportEmail as sender (Ticket 014C)
  * - Multi-tenant: always scope to organizationId (Ticket 014)
  */
-export async function NotificationListener(payload: DomainEventPayload): Promise<void> {
+export async function NotificationListener(_payload: DomainEventPayload): Promise<void> {
   // TODO: implement notification routing logic
   // Example future implementation:
   // const { event, organizationId, userId, resourceType, resourceId, metadata } = payload;
@@ -92,22 +92,6 @@ export async function NotificationListener(payload: DomainEventPayload): Promise
  * - Business Unit: include businessUnitId when available (Ticket 014B)
  * - Module: REPORTING feature required for audit export (Ticket 016)
  */
-// ─────────────────────────────────────────────────────────────────────────────
-// NOTIFICATION LISTENER
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * NotificationListener — Skeleton
- *
- * Future: in-app, email, push, SMS, WhatsApp notifications.
- * Feature flags: EMAILING, SMS, WHATSAPP, MOBILE_APP (Ticket 016)
- * White label: use branding.supportEmail as sender (Ticket 014C)
- */
-export async function NotificationListener(payload: DomainEventPayload): Promise<void> {
-  // TODO: implement notification routing
-  return Promise.resolve();
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // AUDIT LISTENER — Updated in Ticket 018
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +174,7 @@ export async function AuditListener(payload: DomainEventPayload): Promise<void> 
  * Future: automated sequences (onboarding, approval flows, SLA monitoring).
  * Module: WORKFLOW (Ticket 016)
  */
-export async function WorkflowListener(payload: DomainEventPayload): Promise<void> {
+export async function WorkflowListener(_payload: DomainEventPayload): Promise<void> {
   // TODO: implement workflow triggering
   return Promise.resolve();
 }
@@ -205,7 +189,7 @@ export async function WorkflowListener(payload: DomainEventPayload): Promise<voi
  * Future: real-time counters, BI dashboards, gamification.
  * Modules: BI, REPORTING (Ticket 016)
  */
-export async function StatisticsListener(payload: DomainEventPayload): Promise<void> {
+export async function StatisticsListener(_payload: DomainEventPayload): Promise<void> {
   // TODO: implement statistics update logic
   return Promise.resolve();
 }
@@ -220,7 +204,7 @@ export async function StatisticsListener(payload: DomainEventPayload): Promise<v
  * Future: AI request routing, usage logging, quota management.
  * Features: AI_ANALYSIS, AI_TRANSLATION (Ticket 016)
  */
-export async function AIListener(payload: DomainEventPayload): Promise<void> {
+export async function AIListener(_payload: DomainEventPayload): Promise<void> {
   // TODO: implement AI routing and logging
   return Promise.resolve();
 }
@@ -236,7 +220,7 @@ export async function AIListener(payload: DomainEventPayload): Promise<void> {
  * Covers: Challenges, Todo, Agenda, Push, GPS, QR, Barcode (Ticket 016 prep)
  * Feature: MOBILE_APP (Ticket 016)
  */
-export async function MobileSyncListener(payload: DomainEventPayload): Promise<void> {
+export async function MobileSyncListener(_payload: DomainEventPayload): Promise<void> {
   // TODO: implement mobile sync logic
   return Promise.resolve();
 }
@@ -251,7 +235,7 @@ export async function MobileSyncListener(payload: DomainEventPayload): Promise<v
  * Future: document archiving, signatures, YouSign/DocuSign integration.
  * Features: PDF_GENERATION, DOCUMENTS, YOUSIGN (Ticket 016)
  */
-export async function DocumentListener(payload: DomainEventPayload): Promise<void> {
+export async function DocumentListener(_payload: DomainEventPayload): Promise<void> {
   // TODO: implement document archiving and notification
   return Promise.resolve();
 }

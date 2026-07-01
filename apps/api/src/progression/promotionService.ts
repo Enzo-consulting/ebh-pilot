@@ -135,14 +135,14 @@ export async function recalculateLevel(
   if (emitEvents) {
     if (promoted) {
       eventBus.emit(DomainEvent.USER_LEVEL_UP, {
+        eventId: `level_up_${userId}_${Date.now()}`,
+        event: DomainEvent.USER_LEVEL_UP,
         organizationId,
         userId,
-        previousLevel,
-        newLevel,
-        newLevelTitle,
-        newLevelIcon: progress.currentLevel.icon,
-        xpAtPromotion: totalXp,
-        promotedAt: new Date(),
+        resourceType: 'UserExperience',
+        resourceId: userId,
+        occurredAt: new Date(),
+        metadata: { previousLevel, newLevel, newLevelTitle, xpAtPromotion: totalXp },
       });
     }
     // Future: emit USER_LEVEL_DOWN if we add a demoted-specific event

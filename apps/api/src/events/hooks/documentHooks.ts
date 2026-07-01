@@ -54,14 +54,14 @@ async function onDocumentSigned(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Document',
       resourceId: payload.resourceId,
       event: DomainEvent.DOCUMENT_SIGNED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[DocumentHooks] Audit (signed):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.DOCUMENT_SIGNED, 'onDocumentSigned', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.DOCUMENT_SIGNED, Date.now() - start, errorCount > 0);
 }
 
 async function onDocumentCreated(payload: DomainEventPayload): Promise<void> {
@@ -82,7 +82,7 @@ async function onDocumentCreated(payload: DomainEventPayload): Promise<void> {
       value: 1,
       periodStart,
       periodEnd,
-      source: DomainEvent.DOCUMENT_CREATED,
+      source: DomainEvent.DOCUMENT_GENERATED,
       metadata: { resourceId: payload.resourceId },
     });
     log('KPI updated');
@@ -97,18 +97,18 @@ async function onDocumentCreated(payload: DomainEventPayload): Promise<void> {
       userId: payload.userId,
       resourceType: 'Document',
       resourceId: payload.resourceId,
-      event: DomainEvent.DOCUMENT_CREATED,
-      occurredAt: new Date(payload.timestamp),
+      event: DomainEvent.DOCUMENT_GENERATED,
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[DocumentHooks] Audit (created):', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.DOCUMENT_CREATED, 'onDocumentCreated', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.DOCUMENT_GENERATED, Date.now() - start, errorCount > 0);
 }
 
 export function registerDocumentHooks(): void {
-  eventBus.on(DomainEvent.DOCUMENT_SIGNED, onDocumentSigned);
-  eventBus.on(DomainEvent.DOCUMENT_CREATED, onDocumentCreated);
+  eventBus.subscribe(DomainEvent.DOCUMENT_SIGNED, onDocumentSigned);
+  eventBus.subscribe(DomainEvent.DOCUMENT_GENERATED, onDocumentCreated);
 }

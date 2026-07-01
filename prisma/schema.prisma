@@ -408,6 +408,7 @@ model Organization {
   levelDefinitions      LevelDefinition[]
   userLevelHistory      UserLevelHistory[]
   xpTransactions        XpTransaction[]
+  userKpiValues        UserKpiValue[]
 
 
   @@index([slug])

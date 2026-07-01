@@ -204,12 +204,14 @@ export async function grantXp(params: GrantXpParams): Promise<XpOperationResult>
 
   // Emit XP_GAINED event (fire-and-forget)
   eventBus.emit(DomainEvent.XP_GAINED, {
+    eventId: transactionId,
+    event: DomainEvent.XP_GAINED,
     organizationId,
     userId,
-    xp,
-    balanceAfter,
-    sourceEvent,
-    transactionId,
+    resourceType: 'XpTransaction',
+    resourceId: transactionId,
+    occurredAt: new Date(),
+    metadata: { xp, balanceAfter, sourceEvent },
   });
 
   return {
@@ -272,12 +274,14 @@ export async function removeXp(params: RemoveXpParams): Promise<XpOperationResul
 
   // Emit XP_REMOVED event (fire-and-forget)
   eventBus.emit(DomainEvent.XP_REMOVED, {
+    eventId: transactionId,
+    event: DomainEvent.XP_REMOVED,
     organizationId,
     userId,
-    xp: -xp,
-    balanceAfter,
-    sourceEvent,
-    transactionId,
+    resourceType: 'XpTransaction',
+    resourceId: transactionId,
+    occurredAt: new Date(),
+    metadata: { xp: -xp, balanceAfter, sourceEvent },
   });
 
   return {

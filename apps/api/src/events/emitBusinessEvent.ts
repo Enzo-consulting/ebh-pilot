@@ -122,7 +122,7 @@ export async function emitBusinessEvent(
       _route: req.path,
       _method: req.method,
     },
-    timestamp: new Date().toISOString(),
+    occurredAt: new Date(),
   };
 
   debugLog(`Emitting ${event}`, {
@@ -187,7 +187,7 @@ export async function emitSystemEvent(
       ...options.metadata,
       _source: 'emitSystemEvent',
     },
-    timestamp: new Date().toISOString(),
+    occurredAt: new Date(),
   };
 
   debugLog(`[System] Emitting ${event}`, options);

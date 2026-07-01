@@ -83,7 +83,7 @@ export const DEFAULT_LOCALE: BrandLocale = {
   * Utilisee quand aucune organisation n est identifiee,
    * ou quand isWhiteLabelEnabled = false.
     */
-export const DEFAULT_BRANDING: Omit<BrandingConfig, 'organizationId' | 'domain'> = {
+export const DEFAULT_BRANDING: BrandingConfig = {
     theme: 'LIGHT',
     isWhiteLabel: false,
     colors: DEFAULT_COLORS,
@@ -91,6 +91,8 @@ export const DEFAULT_BRANDING: Omit<BrandingConfig, 'organizationId' | 'domain'>
     content: DEFAULT_CONTENT,
     support: DEFAULT_SUPPORT,
     locale: DEFAULT_LOCALE,
+    organizationId: '',
+    domain: { customDomain: null, slug: 'default' },
 };
 
 /**

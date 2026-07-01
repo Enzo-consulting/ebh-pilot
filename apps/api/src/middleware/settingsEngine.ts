@@ -35,7 +35,7 @@
  * in a secure server-side context only.
  */
 
-import prisma from '../prisma.js';
+import { prisma } from '../prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES

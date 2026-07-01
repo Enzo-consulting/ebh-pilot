@@ -66,16 +66,16 @@ async function onGoalReached(payload: DomainEventPayload): Promise<void> {
       resourceType: 'Goal',
       resourceId: payload.resourceId,
       event: DomainEvent.GOAL_REACHED,
-      occurredAt: new Date(payload.timestamp),
+      occurredAt: payload.occurredAt,
       metadata: payload.metadata ?? {},
       isSystemEvent: false,
     });
     log('Audit created');
   } catch (err) { errorCount++; console.error('[GoalHooks] Audit:', err); }
 
-  eventMetrics.recordListenerExecution(DomainEvent.GOAL_REACHED, 'onGoalReached', Date.now() - start, errorCount);
+  eventMetrics.recordListenerExecution(DomainEvent.GOAL_REACHED, Date.now() - start, errorCount > 0);
 }
 
 export function registerGoalHooks(): void {
-  eventBus.on(DomainEvent.GOAL_REACHED, onGoalReached);
+  eventBus.subscribe(DomainEvent.GOAL_REACHED, onGoalReached);
 }
